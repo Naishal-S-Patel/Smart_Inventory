@@ -1,0 +1,63 @@
+#!/bin/sh
+# ----------------------------------------------------------------------------
+# Maven Wrapper startup script, version 3.3.2
+# ----------------------------------------------------------------------------
+
+MVNW_REPOURL=""
+MVNW_VERBOSE="false"
+
+BASEDIR=$(dirname "$0")
+
+find_maven_basedir() {
+  if [ -z "$1" ]; then
+    return 1
+  fi
+
+  basedir="$1"
+  wdir="$1"
+  while [ "$wdir" != '/' ]; do
+    if [ -d "$wdir/.mvn" ]; then
+      basedir="$wdir"
+      break
+    fi
+    wdir=$(dirname "$wdir")
+  done
+  echo "$basedir"
+}
+
+BASEDIR=$(find_maven_basedir "$BASEDIR")
+if [ -z "$BASEDIR" ]; then
+  exit 1
+fi
+
+if [ -r "$BASEDIR/.mvn/wrapper/maven-wrapper.properties" ]; then
+  . "$BASEDIR/.mvn/wrapper/maven-wrapper.properties"
+fi
+
+JAVACMD="java"
+if [ -n "$JAVA_HOME" ]; then
+  JAVACMD="$JAVA_HOME/bin/java"
+fi
+
+WRAPPER_JAR="$BASEDIR/.mvn/wrapper/maven-wrapper.jar"
+
+if [ ! -r "$WRAPPER_JAR" ]; then
+  if [ -z "$wrapperUrl" ]; then
+    wrapperUrl="https://repo.maven.apache.org/maven2/org/apache/maven/wrapper/maven-wrapper/3.3.2/maven-wrapper-3.3.2.jar"
+  fi
+
+  if [ "$MVNW_VERBOSE" = "true" ]; then
+    echo "Downloading Maven Wrapper from $wrapperUrl"
+  fi
+
+  if command -v wget >/dev/null 2>&1; then
+    wget -O "$WRAPPER_JAR" "$wrapperUrl"
+  elif command -v curl >/dev/null 2>&1; then
+    curl -o "$WRAPPER_JAR" "$wrapperUrl"
+  else
+    echo "Error: wget or curl is required to download Maven Wrapper." >&2
+    exit 1
+  fi
+fi
+
+exec "$JAVACMD" -classpath "$WRAPPER_JAR" org.apache.maven.wrapper.MavenWrapperMain "$@"

@@ -1,0 +1,9 @@
+D:\smartInventory\Backend\src\main\java\com\smartinventory\api\TestController.java
+D:\smartInventory\Backend\src\main\java\com\smartinventory\config\AppConfig.java
+D:\smartInventory\Backend\src\main\java\com\smartinventory\config\CorsProperties.java
+D:\smartInventory\Backend\src\main\java\com\smartinventory\config\WebConfig.java
+D:\smartInventory\Backend\src\main\java\com\smartinventory\dto\ApiResponse.java
+D:\smartInventory\Backend\src\main\java\com\smartinventory\dto\ErrorResponse.java
+D:\smartInventory\Backend\src\main\java\com\smartinventory\exception\GlobalExceptionHandler.java
+D:\smartInventory\Backend\src\main\java\com\smartinventory\exception\ResourceNotFoundException.java
+D:\smartInventory\Backend\src\main\java\com\smartinventory\SmartInventoryApplication.java
