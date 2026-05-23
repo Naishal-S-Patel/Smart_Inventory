@@ -12,7 +12,7 @@ spring:
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
-      ddl-auto: validate
+      ddl-auto: update
     properties:
       hibernate:
         format_sql: true
@@ -22,7 +22,9 @@ spring:
     locations: classpath:db/migration
 
 jwt:
-  secret: ${JWT_SECRET:change_me}
+  secret: Ahueygiur127AHbcuyrlzmcorju13940dhzbhmrejhy324u1384fnrm
+  access-token-exp-minutes: 15
+  refresh-token-exp-days: 7
 
 management:
   endpoints:

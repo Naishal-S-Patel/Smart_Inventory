@@ -1,5 +1,9 @@
 package com.smartinventory.exception;
 
+import com.smartinventory.exception.AccountLockedException;
+import com.smartinventory.exception.DuplicateEmailException;
+import com.smartinventory.exception.InvalidCredentialsException;
+import com.smartinventory.exception.TokenExpiredException;
 import com.smartinventory.dto.ErrorResponse;
 import java.time.Clock;
 import java.time.OffsetDateTime;
@@ -26,6 +30,34 @@ public class GlobalExceptionHandler {
         log.warn("Resource not found: {}", ex.getMessage());
         ErrorResponse response = ErrorResponse.of("RESOURCE_NOT_FOUND", ex.getMessage(), now);
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+    }
+
+    @ExceptionHandler(DuplicateEmailException.class)
+    public ResponseEntity<ErrorResponse> handleDuplicateEmail(DuplicateEmailException ex) {
+        OffsetDateTime now = OffsetDateTime.now(clock).withOffsetSameInstant(ZoneOffset.UTC);
+        ErrorResponse response = ErrorResponse.of("DUPLICATE_EMAIL", ex.getMessage(), now);
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+    }
+
+    @ExceptionHandler(InvalidCredentialsException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidCredentials(InvalidCredentialsException ex) {
+        OffsetDateTime now = OffsetDateTime.now(clock).withOffsetSameInstant(ZoneOffset.UTC);
+        ErrorResponse response = ErrorResponse.of("INVALID_CREDENTIALS", ex.getMessage(), now);
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
+    }
+
+    @ExceptionHandler(AccountLockedException.class)
+    public ResponseEntity<ErrorResponse> handleAccountLocked(AccountLockedException ex) {
+        OffsetDateTime now = OffsetDateTime.now(clock).withOffsetSameInstant(ZoneOffset.UTC);
+        ErrorResponse response = ErrorResponse.of("ACCOUNT_LOCKED", ex.getMessage(), now);
+        return ResponseEntity.status(HttpStatus.LOCKED).body(response);
+    }
+
+    @ExceptionHandler(TokenExpiredException.class)
+    public ResponseEntity<ErrorResponse> handleTokenExpired(TokenExpiredException ex) {
+        OffsetDateTime now = OffsetDateTime.now(clock).withOffsetSameInstant(ZoneOffset.UTC);
+        ErrorResponse response = ErrorResponse.of("TOKEN_EXPIRED", ex.getMessage(), now);
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
     }
 
     @ExceptionHandler(Exception.class)

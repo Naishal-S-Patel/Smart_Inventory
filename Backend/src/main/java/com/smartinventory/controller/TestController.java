@@ -1,4 +1,4 @@
-package com.smartinventory.api;
+package com.smartinventory.controller;
 
 import com.smartinventory.dto.ApiResponse;
 import java.time.Clock;
@@ -23,6 +23,13 @@ public class TestController {
     public ResponseEntity<ApiResponse<Void>> health() {
         OffsetDateTime now = OffsetDateTime.now(clock).withOffsetSameInstant(ZoneOffset.UTC);
         ApiResponse<Void> response = ApiResponse.success(null, "Service is running", now);
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/protected")
+    public ResponseEntity<ApiResponse<String>> protectedEndpoint() {
+        OffsetDateTime now = OffsetDateTime.now(clock).withOffsetSameInstant(ZoneOffset.UTC);
+        ApiResponse<String> response = ApiResponse.success("Protected access granted", "OK", now);
         return ResponseEntity.ok(response);
     }
 }
