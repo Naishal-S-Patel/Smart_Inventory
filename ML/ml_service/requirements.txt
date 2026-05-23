@@ -1,0 +1,11 @@
+fastapi
+uvicorn[standard]
+mlflow
+pandas
+sqlalchemy
+psycopg2-binary
+prophet
+xgboost
+pydantic-settings
+pytest
+httpx
