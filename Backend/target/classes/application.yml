@@ -12,7 +12,7 @@ spring:
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     properties:
       hibernate:
         format_sql: true
@@ -20,6 +20,7 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
+    baseline-on-migrate: true
 
 jwt:
   secret: Ahueygiur127AHbcuyrlzmcorju13940dhzbhmrejhy324u1384fnrm

@@ -1,8 +1,11 @@
 package com.smartinventory.exception;
 
 import com.smartinventory.exception.AccountLockedException;
+import com.smartinventory.exception.DuplicateBarcodeException;
 import com.smartinventory.exception.DuplicateEmailException;
+import com.smartinventory.exception.DuplicateSkuException;
 import com.smartinventory.exception.InvalidCredentialsException;
+import com.smartinventory.exception.ProductNotFoundException;
 import com.smartinventory.exception.TokenExpiredException;
 import com.smartinventory.dto.ErrorResponse;
 import java.time.Clock;
@@ -32,10 +35,32 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
     }
 
+    @ExceptionHandler(ProductNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleProductNotFound(ProductNotFoundException ex) {
+        OffsetDateTime now = OffsetDateTime.now(clock).withOffsetSameInstant(ZoneOffset.UTC);
+        log.warn("Product not found: {}", ex.getMessage());
+        ErrorResponse response = ErrorResponse.of("PRODUCT_NOT_FOUND", ex.getMessage(), now);
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+    }
+
     @ExceptionHandler(DuplicateEmailException.class)
     public ResponseEntity<ErrorResponse> handleDuplicateEmail(DuplicateEmailException ex) {
         OffsetDateTime now = OffsetDateTime.now(clock).withOffsetSameInstant(ZoneOffset.UTC);
         ErrorResponse response = ErrorResponse.of("DUPLICATE_EMAIL", ex.getMessage(), now);
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+    }
+
+    @ExceptionHandler(DuplicateSkuException.class)
+    public ResponseEntity<ErrorResponse> handleDuplicateSku(DuplicateSkuException ex) {
+        OffsetDateTime now = OffsetDateTime.now(clock).withOffsetSameInstant(ZoneOffset.UTC);
+        ErrorResponse response = ErrorResponse.of("DUPLICATE_SKU", ex.getMessage(), now);
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+    }
+
+    @ExceptionHandler(DuplicateBarcodeException.class)
+    public ResponseEntity<ErrorResponse> handleDuplicateBarcode(DuplicateBarcodeException ex) {
+        OffsetDateTime now = OffsetDateTime.now(clock).withOffsetSameInstant(ZoneOffset.UTC);
+        ErrorResponse response = ErrorResponse.of("DUPLICATE_BARCODE", ex.getMessage(), now);
         return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
     }
 
