@@ -4,6 +4,8 @@ mlflow
 pandas
 sqlalchemy
 psycopg2-binary
+faker
+numpy
 prophet
 xgboost
 pydantic-settings
