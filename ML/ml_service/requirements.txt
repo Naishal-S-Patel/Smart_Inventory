@@ -9,3 +9,4 @@ xgboost
 pydantic-settings
 pytest
 httpx
+pyjwt
