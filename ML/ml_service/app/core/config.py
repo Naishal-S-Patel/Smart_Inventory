@@ -12,11 +12,11 @@ class Settings(BaseSettings):
     environment: str = "development"
     log_level: str = "INFO"
     database_url: str = (
-        "postgresql+psycopg2://postgres:postgres@localhost:5432/smartinventory"
+        "postgresql+psycopg2://postgres:naishal%407@localhost:5432/smart_inventory"
     )
     mlflow_tracking_uri: str = "sqlite:///mlruns.db"
     mlflow_experiment_name: str = "smartinventory-ml"
-    jwt_secret: str = "dev-secret-change-me"
+    jwt_secret: str = "Ahueygiur127AHbcuyrlzmcorju13940dhzbhmrejhy324u1384fnrm"
     jwt_algorithm: str = "HS256"
     jwt_issuer: str | None = None
     jwt_audience: str | None = None

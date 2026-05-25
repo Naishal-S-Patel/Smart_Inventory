@@ -6,6 +6,8 @@ sqlalchemy
 psycopg2-binary
 faker
 numpy
+matplotlib
+holidays
 prophet
 xgboost
 pydantic-settings
