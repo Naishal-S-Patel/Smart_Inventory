@@ -1,17 +1,11 @@
 package com.smartinventory.exception;
 
-import com.smartinventory.exception.AccountLockedException;
-import com.smartinventory.exception.DuplicateBarcodeException;
-import com.smartinventory.exception.DuplicateEmailException;
-import com.smartinventory.exception.DuplicateSkuException;
-import com.smartinventory.exception.InvalidCredentialsException;
-import com.smartinventory.exception.ProductNotFoundException;
-import com.smartinventory.exception.TokenExpiredException;
 import com.smartinventory.dto.ErrorResponse;
 import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -41,6 +35,30 @@ public class GlobalExceptionHandler {
         log.warn("Product not found: {}", ex.getMessage());
         ErrorResponse response = ErrorResponse.of("PRODUCT_NOT_FOUND", ex.getMessage(), now);
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+    }
+
+    @ExceptionHandler(WarehouseNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleWarehouseNotFound(WarehouseNotFoundException ex) {
+        OffsetDateTime now = OffsetDateTime.now(clock).withOffsetSameInstant(ZoneOffset.UTC);
+        log.warn("Warehouse not found: {}", ex.getMessage());
+        ErrorResponse response = ErrorResponse.of("WAREHOUSE_NOT_FOUND", ex.getMessage(), now);
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+    }
+
+    @ExceptionHandler(InventoryNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleInventoryNotFound(InventoryNotFoundException ex) {
+        OffsetDateTime now = OffsetDateTime.now(clock).withOffsetSameInstant(ZoneOffset.UTC);
+        log.warn("Inventory not found: {}", ex.getMessage());
+        ErrorResponse response = ErrorResponse.of("INVENTORY_NOT_FOUND", ex.getMessage(), now);
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+    }
+
+    @ExceptionHandler(InsufficientStockException.class)
+    public ResponseEntity<ErrorResponse> handleInsufficientStock(InsufficientStockException ex) {
+        OffsetDateTime now = OffsetDateTime.now(clock).withOffsetSameInstant(ZoneOffset.UTC);
+        log.warn("Insufficient stock: {}", ex.getMessage());
+        ErrorResponse response = ErrorResponse.of("INSUFFICIENT_STOCK", ex.getMessage(), now);
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
     }
 
     @ExceptionHandler(DuplicateEmailException.class)
@@ -83,6 +101,20 @@ public class GlobalExceptionHandler {
         OffsetDateTime now = OffsetDateTime.now(clock).withOffsetSameInstant(ZoneOffset.UTC);
         ErrorResponse response = ErrorResponse.of("TOKEN_EXPIRED", ex.getMessage(), now);
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ErrorResponse> handleBadRequest(IllegalArgumentException ex) {
+        OffsetDateTime now = OffsetDateTime.now(clock).withOffsetSameInstant(ZoneOffset.UTC);
+        ErrorResponse response = ErrorResponse.of("INVALID_REQUEST", ex.getMessage(), now);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    @ExceptionHandler(OptimisticLockingFailureException.class)
+    public ResponseEntity<ErrorResponse> handleOptimisticLock(OptimisticLockingFailureException ex) {
+        OffsetDateTime now = OffsetDateTime.now(clock).withOffsetSameInstant(ZoneOffset.UTC);
+        ErrorResponse response = ErrorResponse.of("OPTIMISTIC_LOCK", "Concurrent update detected", now);
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
     }
 
     @ExceptionHandler(Exception.class)
