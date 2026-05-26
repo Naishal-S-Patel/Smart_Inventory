@@ -45,6 +45,22 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
     }
 
+    @ExceptionHandler(SupplierNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleSupplierNotFound(SupplierNotFoundException ex) {
+        OffsetDateTime now = OffsetDateTime.now(clock).withOffsetSameInstant(ZoneOffset.UTC);
+        log.warn("Supplier not found: {}", ex.getMessage());
+        ErrorResponse response = ErrorResponse.of("SUPPLIER_NOT_FOUND", ex.getMessage(), now);
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+    }
+
+    @ExceptionHandler(PurchaseOrderNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handlePurchaseOrderNotFound(PurchaseOrderNotFoundException ex) {
+        OffsetDateTime now = OffsetDateTime.now(clock).withOffsetSameInstant(ZoneOffset.UTC);
+        log.warn("Purchase order not found: {}", ex.getMessage());
+        ErrorResponse response = ErrorResponse.of("PURCHASE_ORDER_NOT_FOUND", ex.getMessage(), now);
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+    }
+
     @ExceptionHandler(InventoryNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleInventoryNotFound(InventoryNotFoundException ex) {
         OffsetDateTime now = OffsetDateTime.now(clock).withOffsetSameInstant(ZoneOffset.UTC);
@@ -58,6 +74,14 @@ public class GlobalExceptionHandler {
         OffsetDateTime now = OffsetDateTime.now(clock).withOffsetSameInstant(ZoneOffset.UTC);
         log.warn("Insufficient stock: {}", ex.getMessage());
         ErrorResponse response = ErrorResponse.of("INSUFFICIENT_STOCK", ex.getMessage(), now);
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+    }
+
+    @ExceptionHandler(InvalidPurchaseOrderStateException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidPurchaseOrderState(InvalidPurchaseOrderStateException ex) {
+        OffsetDateTime now = OffsetDateTime.now(clock).withOffsetSameInstant(ZoneOffset.UTC);
+        log.warn("Invalid purchase order state: {}", ex.getMessage());
+        ErrorResponse response = ErrorResponse.of("INVALID_PURCHASE_ORDER_STATE", ex.getMessage(), now);
         return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
     }
 

@@ -24,7 +24,7 @@ spring:
 
 jwt:
   secret: Ahueygiur127AHbcuyrlzmcorju13940dhzbhmrejhy324u1384fnrm
-  access-token-exp-minutes: 15
+  access-token-exp-minutes: 45
   refresh-token-exp-days: 7
 
 management:
