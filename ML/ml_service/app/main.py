@@ -3,6 +3,7 @@ from fastapi.responses import JSONResponse
 
 from app.api.debug import router as debug_router
 from app.api.health import router as health_router
+from app.api.forecast import router as forecast_router
 from app.api.predict import router as predict_router
 from app.core.config import settings
 from app.core.logging import configure_logging
@@ -21,6 +22,7 @@ app.add_middleware(RequestLoggingMiddleware)
 app.include_router(health_router)
 app.include_router(predict_router)
 app.include_router(debug_router)
+app.include_router(forecast_router)
 
 
 @app.exception_handler(UnauthorizedException)

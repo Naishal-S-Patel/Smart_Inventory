@@ -13,3 +13,5 @@ build/
 .vscode/
 mlruns/
 mlruns.db
+reports/
+models/
