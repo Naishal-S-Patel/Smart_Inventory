@@ -1,0 +1,5 @@
+com\smartinventory\service\SalesOrderIntegrationTest.class
+com\smartinventory\service\InventoryIntegrationTest.class
+com\smartinventory\service\PurchaseOrderIntegrationTest.class
+com\smartinventory\service\ProductServiceTest.class
+com\smartinventory\AuthIntegrationTest.class

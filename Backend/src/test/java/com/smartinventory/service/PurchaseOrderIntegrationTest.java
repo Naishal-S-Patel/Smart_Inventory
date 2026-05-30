@@ -27,6 +27,7 @@ import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -109,7 +110,7 @@ class PurchaseOrderIntegrationTest {
         PurchaseOrderDTO created = createSamplePurchaseOrder();
 
         PurchaseOrderDTO approved = purchaseOrderService.approvePurchaseOrder(
-                created.getId(),
+            created.getId().toString(),
                 new PurchaseOrderApproveRequest("Approved")
         );
 
@@ -119,8 +120,8 @@ class PurchaseOrderIntegrationTest {
     @Test
     void receivePurchaseOrderUpdatesStatus() {
         PurchaseOrderDTO created = createSamplePurchaseOrder();
-        purchaseOrderService.approvePurchaseOrder(created.getId(), new PurchaseOrderApproveRequest("Approved"));
-        purchaseOrderService.markAsSent(created.getId());
+        purchaseOrderService.approvePurchaseOrder(created.getId().toString(), new PurchaseOrderApproveRequest("Approved"));
+        purchaseOrderService.markAsSent(created.getId().toString());
 
         PurchaseOrderReceiveRequest receiveRequest = new PurchaseOrderReceiveRequest(
                 LocalDate.now(clock),
@@ -128,7 +129,7 @@ class PurchaseOrderIntegrationTest {
                 List.of(new PurchaseOrderItemReceiveRequest(created.getItems().get(0).getProductId(), 10))
         );
 
-        PurchaseOrderDTO received = purchaseOrderService.receivePurchaseOrder(created.getId(), receiveRequest);
+        PurchaseOrderDTO received = purchaseOrderService.receivePurchaseOrder(created.getId().toString(), receiveRequest);
 
         assertThat(received.getStatus()).isEqualTo(PurchaseOrderStatus.RECEIVED);
         assertThat(received.getActualDeliveryDate()).isNotNull();
@@ -144,26 +145,26 @@ class PurchaseOrderIntegrationTest {
                 List.of(new PurchaseOrderItemReceiveRequest(created.getItems().get(0).getProductId(), 1))
         );
 
-        assertThatThrownBy(() -> purchaseOrderService.receivePurchaseOrder(created.getId(), receiveRequest))
+        assertThatThrownBy(() -> purchaseOrderService.receivePurchaseOrder(created.getId().toString(), receiveRequest))
                 .isInstanceOf(InvalidPurchaseOrderStateException.class);
     }
 
     @Test
     void receivingPurchaseOrderCreatesInventoryLedgerEntries() {
         PurchaseOrderDTO created = createSamplePurchaseOrder();
-        purchaseOrderService.approvePurchaseOrder(created.getId(), new PurchaseOrderApproveRequest("Approved"));
-        purchaseOrderService.markAsSent(created.getId());
+        purchaseOrderService.approvePurchaseOrder(created.getId().toString(), new PurchaseOrderApproveRequest("Approved"));
+        purchaseOrderService.markAsSent(created.getId().toString());
 
         UUID productId = created.getItems().get(0).getProductId();
         UUID warehouseId = created.getWarehouseId();
 
         PurchaseOrderReceiveRequest receiveRequest = new PurchaseOrderReceiveRequest(
-                nowUtc(),
+            LocalDate.now(clock),
                 "Delivered",
                 List.of(new PurchaseOrderItemReceiveRequest(productId, 10))
         );
 
-        purchaseOrderService.receivePurchaseOrder(created.getId(), receiveRequest);
+        purchaseOrderService.receivePurchaseOrder(created.getId().toString(), receiveRequest);
 
         Inventory inventory = inventoryRepository.findByProductIdAndWarehouseId(productId, warehouseId).orElseThrow();
         assertThat(inventory.getQuantityOnHand()).isEqualTo(10);

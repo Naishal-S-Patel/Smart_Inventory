@@ -10,3 +10,4 @@ public class JwtAuthenticationResponse {
     private final String accessToken;
     private final String refreshToken;
 }
+
