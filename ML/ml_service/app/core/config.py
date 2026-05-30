@@ -16,6 +16,9 @@ class Settings(BaseSettings):
     )
     mlflow_tracking_uri: str = "sqlite:///mlruns.db"
     mlflow_experiment_name: str = "smartinventory-ml"
+    analytics_refresh_seconds: int = 900
+    analytics_lookback_days: int = 180
+    analytics_report_dir: str = "reports/analytics"
     jwt_secret: str = "Ahueygiur127AHbcuyrlzmcorju13940dhzbhmrejhy324u1384fnrm"
     jwt_algorithm: str = "HS256"
     jwt_issuer: str | None = None

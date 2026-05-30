@@ -6,6 +6,7 @@ sqlalchemy
 psycopg2-binary
 faker
 numpy
+scikit-learn
 matplotlib
 holidays
 prophet

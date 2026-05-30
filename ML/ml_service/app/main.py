@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
+from app.api.analytics import router as analytics_router
 from app.api.debug import router as debug_router
 from app.api.health import router as health_router
 from app.api.forecast import router as forecast_router
@@ -23,6 +24,7 @@ app.include_router(health_router)
 app.include_router(predict_router)
 app.include_router(debug_router)
 app.include_router(forecast_router)
+app.include_router(analytics_router)
 
 
 @app.exception_handler(UnauthorizedException)
@@ -38,5 +40,9 @@ async def unauthorized_exception_handler(
 
 
 @app.on_event("startup")
-def startup() -> None:
+async def startup() -> None:
     init_mlflow()
+    from app.analytics.refresh import start_scheduler
+    from app.db.session import engine
+
+    start_scheduler(engine)
