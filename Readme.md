@@ -371,13 +371,3 @@ The ML service exposes the following endpoints (prefix: `/ml`):
 Please follow [Conventional Commits](https://www.conventionalcommits.org/) for commit messages.
 
 ---
-
-## 📄 License
-
-This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.
-
----
-
-<div align="center">
-  Built with ❤️ by <strong>Naishal S. Patel</strong>
-</div>
