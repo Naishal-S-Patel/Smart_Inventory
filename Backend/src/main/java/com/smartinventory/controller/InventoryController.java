@@ -1,5 +1,6 @@
 package com.smartinventory.controller;
 
+import com.smartinventory.aspect.Auditable;
 import com.smartinventory.dto.ApiResponse;
 import com.smartinventory.dto.InventoryAdjustmentRequest;
 import com.smartinventory.dto.InventoryDTO;
@@ -39,7 +40,7 @@ public class InventoryController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('STAFF','MANAGER','ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER','STAFF','ANALYST')")
     public ResponseEntity<ApiResponse<Page<InventoryDTO>>> getInventory(
             @RequestParam(value = "warehouseId", required = false) UUID warehouseId,
             @RequestParam(value = "productId", required = false) UUID productId,
@@ -51,7 +52,7 @@ public class InventoryController {
     }
 
     @GetMapping("/low-stock")
-    @PreAuthorize("hasAnyRole('STAFF','MANAGER','ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER','STAFF','ANALYST')")
     public ResponseEntity<ApiResponse<Page<InventoryDTO>>> getLowStock(
             @RequestParam(value = "warehouseId", required = false) UUID warehouseId,
             @PageableDefault(size = 20) Pageable pageable
@@ -61,7 +62,7 @@ public class InventoryController {
     }
 
     @GetMapping("/transactions")
-    @PreAuthorize("hasAnyRole('STAFF','MANAGER','ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER','STAFF','ANALYST')")
     public ResponseEntity<ApiResponse<Page<InventoryTransactionDTO>>> getTransactions(
             @RequestParam(value = "warehouseId", required = false) UUID warehouseId,
             @RequestParam(value = "productId", required = false) UUID productId,
@@ -79,6 +80,7 @@ public class InventoryController {
 
     @PostMapping("/adjust")
     @PreAuthorize("hasAnyRole('MANAGER','ADMIN')")
+    @Auditable(entity = "Inventory", action = "ADJUST")
     public ResponseEntity<ApiResponse<InventoryDTO>> adjustStock(
             @Valid @RequestBody InventoryAdjustmentRequest request
     ) {
@@ -88,6 +90,7 @@ public class InventoryController {
 
     @PostMapping("/transfer")
     @PreAuthorize("hasAnyRole('MANAGER','ADMIN')")
+    @Auditable(entity = "Inventory", action = "TRANSFER")
     public ResponseEntity<ApiResponse<List<InventoryDTO>>> transferStock(
             @Valid @RequestBody InventoryTransferRequest request
     ) {

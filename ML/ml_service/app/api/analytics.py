@@ -7,11 +7,13 @@ from app.analytics.csv_utils import dataframe_to_csv_response, records_to_datafr
 from app.analytics.refresh import cache, refresh_all
 from app.db.session import engine
 from app.dependencies import get_current_user
+from app.analytics.smart_insights import generate_report_insights
 from app.schemas.analytics import (
     AnomalyResponse,
     DashboardSummaryResponse,
     InsightResponse,
     InventoryAnalyticsResponse,
+    ReportSummaryResponse,
     SalesAnalyticsResponse,
 )
 from app.schemas.auth import AuthenticatedUser
@@ -172,5 +174,25 @@ async def dashboard_summary(
         low_stock_count=dashboard["low_stock_count"],
         predicted_stockouts=dashboard["predicted_stockouts"],
         pending_purchase_orders=dashboard["pending_purchase_orders"],
+        generated_at=snapshot["generated_at"],
+    )
+
+
+@router.get("/report-summary", response_model=ReportSummaryResponse)
+async def report_summary(
+    current_user: AuthenticatedUser = Depends(get_current_user),
+) -> ReportSummaryResponse:
+    _ = current_user
+    snapshot = _get_snapshot()
+    anomaly_count = len(snapshot["anomalies"].get("items", []))
+    report_insights = generate_report_insights(
+        sales_result=snapshot["sales"],
+        inventory_result=snapshot["inventory"],
+        anomaly_count=anomaly_count,
+        dashboard=snapshot["dashboard"],
+    )
+    return ReportSummaryResponse(
+        insights=snapshot["insights"]["items"],
+        report_insights=report_insights,
         generated_at=snapshot["generated_at"],
     )

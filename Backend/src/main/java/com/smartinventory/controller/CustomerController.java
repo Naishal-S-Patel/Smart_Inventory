@@ -41,7 +41,7 @@ public class CustomerController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('STAFF','MANAGER','ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER','STAFF','ANALYST')")
     @Operation(summary = "List customers")
     public ResponseEntity<ApiResponse<Page<CustomerDTO>>> getCustomers(
             @Parameter(description = "Active status")

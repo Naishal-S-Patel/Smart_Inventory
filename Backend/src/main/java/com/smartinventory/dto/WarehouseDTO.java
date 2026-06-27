@@ -1,11 +1,13 @@
 package com.smartinventory.dto;
 
 import java.util.UUID;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 
 @Getter
 @Builder
+@AllArgsConstructor
 public class WarehouseDTO {
 
     private final UUID id;

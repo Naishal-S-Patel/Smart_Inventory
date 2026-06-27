@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { cn } from '@/lib/utils';
-import { Search, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 
 interface Column<T> {
   key: string;
@@ -15,11 +15,20 @@ interface DataTableProps<T> {
   columns: Column<T>[];
   searchPlaceholder?: string;
   searchKey?: (item: T) => string;
+  /** Called when user types — enables server-side search */
+  onSearch?: (value: string) => void;
   pageSize?: number;
   className?: string;
   filterSlot?: React.ReactNode;
   onRowClick?: (item: T) => void;
   emptyMessage?: string;
+  isLoading?: boolean;
+  /** Total elements from server (enables server-side pagination) */
+  totalElements?: number;
+  /** Current 0-based page (server-side) */
+  currentPage?: number;
+  /** Called when page changes (server-side) */
+  onPageChange?: (page: number) => void;
 }
 
 export function DataTable<T extends { id?: string }>({
@@ -27,54 +36,69 @@ export function DataTable<T extends { id?: string }>({
   columns,
   searchPlaceholder = 'Search...',
   searchKey,
+  onSearch,
   pageSize = 10,
   className,
   filterSlot,
   onRowClick,
   emptyMessage = 'No data found',
+  isLoading = false,
+  totalElements,
+  currentPage: serverPage,
+  onPageChange,
 }: DataTableProps<T>) {
-  const [search, setSearch] = React.useState('');
-  const [currentPage, setCurrentPage] = React.useState(1);
+  const isServerMode = onPageChange !== undefined && totalElements !== undefined;
+
+  const [localSearch, setLocalSearch] = React.useState('');
+  const [localPage, setLocalPage] = React.useState(1);
   const [sortKey, setSortKey] = React.useState<string | null>(null);
   const [sortDir, setSortDir] = React.useState<'asc' | 'desc'>('asc');
 
-  // Filter
-  const filtered = React.useMemo(() => {
-    if (!search || !searchKey) return data;
-    const q = search.toLowerCase();
-    return data.filter((item) => searchKey(item).toLowerCase().includes(q));
-  }, [data, search, searchKey]);
+  const handleSearch = (val: string) => {
+    setLocalSearch(val);
+    setLocalPage(1);
+    onSearch?.(val);
+  };
 
-  // Sort (simple string/number comparison)
+  // Client-side filter + sort + paginate (only when NOT server mode)
+  const filtered = React.useMemo(() => {
+    if (isServerMode) return data;
+    if (!localSearch || !searchKey) return data;
+    const q = localSearch.toLowerCase();
+    return data.filter((item) => searchKey(item).toLowerCase().includes(q));
+  }, [data, localSearch, searchKey, isServerMode]);
+
   const sorted = React.useMemo(() => {
     if (!sortKey) return filtered;
     return [...filtered].sort((a, b) => {
-      const aVal = (a as any)[sortKey];
-      const bVal = (b as any)[sortKey];
+      const aVal = (a as Record<string, unknown>)[sortKey];
+      const bVal = (b as Record<string, unknown>)[sortKey];
       if (typeof aVal === 'number' && typeof bVal === 'number') {
         return sortDir === 'asc' ? aVal - bVal : bVal - aVal;
       }
-      const aStr = String(aVal || '');
-      const bStr = String(bVal || '');
-      return sortDir === 'asc' ? aStr.localeCompare(bStr) : bStr.localeCompare(aStr);
+      return sortDir === 'asc'
+        ? String(aVal ?? '').localeCompare(String(bVal ?? ''))
+        : String(bVal ?? '').localeCompare(String(aVal ?? ''));
     });
   }, [filtered, sortKey, sortDir]);
 
-  // Paginate
-  const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize));
-  const paginated = sorted.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  // Pagination values
+  const activePage = isServerMode ? (serverPage ?? 0) + 1 : localPage;
+  const total = isServerMode ? (totalElements ?? 0) : sorted.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const paginated = isServerMode ? sorted : sorted.slice((localPage - 1) * pageSize, localPage * pageSize);
 
-  React.useEffect(() => {
-    setCurrentPage(1);
-  }, [search]);
+  const goTo = (page: number) => {
+    if (isServerMode) {
+      onPageChange?.(page - 1); // server is 0-based
+    } else {
+      setLocalPage(page);
+    }
+  };
 
   const handleSort = (key: string) => {
-    if (sortKey === key) {
-      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
-    } else {
-      setSortKey(key);
-      setSortDir('asc');
-    }
+    if (sortKey === key) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    else { setSortKey(key); setSortDir('asc'); }
   };
 
   return (
@@ -86,8 +110,8 @@ export function DataTable<T extends { id?: string }>({
           <input
             type="text"
             placeholder={searchPlaceholder}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            value={localSearch}
+            onChange={(e) => handleSearch(e.target.value)}
             className="w-full h-10 pl-9 pr-3 rounded-lg border border-slate-200 bg-white text-sm font-medium text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 transition-colors"
           />
         </div>
@@ -107,7 +131,7 @@ export function DataTable<T extends { id?: string }>({
                     className={cn(
                       'py-3 px-5 text-[11px] font-semibold text-slate-500 uppercase tracking-wider select-none',
                       col.sortable && 'cursor-pointer hover:text-slate-700',
-                      col.className
+                      col.className,
                     )}
                   >
                     <span className="flex items-center gap-1">
@@ -121,7 +145,13 @@ export function DataTable<T extends { id?: string }>({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {paginated.length === 0 ? (
+              {isLoading ? (
+                <tr>
+                  <td colSpan={columns.length} className="py-12 text-center">
+                    <Loader2 className="h-6 w-6 animate-spin text-emerald-500 mx-auto" />
+                  </td>
+                </tr>
+              ) : paginated.length === 0 ? (
                 <tr>
                   <td colSpan={columns.length} className="py-12 text-center text-sm text-slate-400 font-medium">
                     {emptyMessage}
@@ -130,11 +160,11 @@ export function DataTable<T extends { id?: string }>({
               ) : (
                 paginated.map((item, idx) => (
                   <tr
-                    key={(item as any).id || idx}
+                    key={(item as Record<string, unknown>).id as string || idx}
                     onClick={() => onRowClick?.(item)}
                     className={cn(
                       'hover:bg-slate-50/60 transition-colors text-sm',
-                      onRowClick && 'cursor-pointer'
+                      onRowClick && 'cursor-pointer',
                     )}
                   >
                     {columns.map((col) => (
@@ -153,36 +183,33 @@ export function DataTable<T extends { id?: string }>({
         {totalPages > 1 && (
           <div className="flex items-center justify-between border-t border-slate-100 px-5 py-3 bg-slate-50/30">
             <p className="text-xs font-medium text-slate-500">
-              Showing {(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, sorted.length)} of {sorted.length}
+              {isServerMode
+                ? `Page ${activePage} of ${totalPages} · ${total.toLocaleString()} total`
+                : `Showing ${(activePage - 1) * pageSize + 1}–${Math.min(activePage * pageSize, total)} of ${total}`}
             </p>
             <div className="flex items-center gap-1">
               <button
-                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
+                onClick={() => goTo(activePage - 1)}
+                disabled={activePage === 1}
                 className="flex items-center justify-center h-8 w-8 rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
                 <ChevronLeft className="h-4 w-4" />
               </button>
               {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                 let page: number;
-                if (totalPages <= 5) {
-                  page = i + 1;
-                } else if (currentPage <= 3) {
-                  page = i + 1;
-                } else if (currentPage >= totalPages - 2) {
-                  page = totalPages - 4 + i;
-                } else {
-                  page = currentPage - 2 + i;
-                }
+                if (totalPages <= 5) page = i + 1;
+                else if (activePage <= 3) page = i + 1;
+                else if (activePage >= totalPages - 2) page = totalPages - 4 + i;
+                else page = activePage - 2 + i;
                 return (
                   <button
                     key={page}
-                    onClick={() => setCurrentPage(page)}
+                    onClick={() => goTo(page)}
                     className={cn(
                       'flex items-center justify-center h-8 w-8 rounded-lg text-xs font-semibold transition-colors',
-                      page === currentPage
+                      page === activePage
                         ? 'bg-emerald-500 text-white'
-                        : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                        : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50',
                     )}
                   >
                     {page}
@@ -190,8 +217,8 @@ export function DataTable<T extends { id?: string }>({
                 );
               })}
               <button
-                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages}
+                onClick={() => goTo(activePage + 1)}
+                disabled={activePage === totalPages}
                 className="flex items-center justify-center h-8 w-8 rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
                 <ChevronRight className="h-4 w-4" />

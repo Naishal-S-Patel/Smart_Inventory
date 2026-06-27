@@ -1,5 +1,19 @@
 package com.smartinventory.service;
 
+import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.util.List;
+import java.util.UUID;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+
 import com.smartinventory.dto.CreateSalesOrderRequest;
 import com.smartinventory.dto.SalesOrderDTO;
 import com.smartinventory.dto.SalesOrderItemCreateRequest;
@@ -19,22 +33,12 @@ import com.smartinventory.repository.CustomerRepository;
 import com.smartinventory.repository.InventoryRepository;
 import com.smartinventory.repository.InventoryTransactionRepository;
 import com.smartinventory.repository.ProductRepository;
+import com.smartinventory.repository.PurchaseOrderItemRepository;
+import com.smartinventory.repository.PurchaseOrderRepository;
 import com.smartinventory.repository.SalesOrderItemRepository;
 import com.smartinventory.repository.SalesOrderRepository;
+import com.smartinventory.repository.SupplierRepository;
 import com.smartinventory.repository.WarehouseRepository;
-import java.math.BigDecimal;
-import java.time.Clock;
-import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
-import java.util.List;
-import java.util.UUID;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @SpringBootTest
 class SalesOrderIntegrationTest {
@@ -67,15 +71,27 @@ class SalesOrderIntegrationTest {
     private InventoryTransactionRepository inventoryTransactionRepository;
 
     @Autowired
+    private PurchaseOrderItemRepository purchaseOrderItemRepository;
+
+    @Autowired
+    private PurchaseOrderRepository purchaseOrderRepository;
+
+    @Autowired
+    private SupplierRepository supplierRepository;
+
+    @Autowired
     private Clock clock;
 
     @BeforeEach
     void cleanDatabase() {
-        inventoryTransactionRepository.deleteAll();
-        inventoryRepository.deleteAll();
         salesOrderItemRepository.deleteAll();
         salesOrderRepository.deleteAll();
         customerRepository.deleteAll();
+        purchaseOrderItemRepository.deleteAll();
+        purchaseOrderRepository.deleteAll();
+        supplierRepository.deleteAll();
+        inventoryTransactionRepository.deleteAll();
+        inventoryRepository.deleteAll();
         warehouseRepository.deleteAll();
         productRepository.deleteAll();
         categoryRepository.deleteAll();
@@ -176,6 +192,8 @@ class SalesOrderIntegrationTest {
         warehouse.setState("State");
         warehouse.setCapacity(1000);
         warehouse.setActive(true);
+        warehouse.setCreatedAt(nowUtc());
+        warehouse.setUpdatedAt(nowUtc());
         return warehouseRepository.save(warehouse);
     }
 
@@ -212,7 +230,6 @@ class SalesOrderIntegrationTest {
         inventory.setWarehouse(warehouse);
         inventory.setQuantityOnHand(quantityOnHand);
         inventory.setReservedQuantity(reservedQuantity);
-        inventory.setReorderPoint(product.getReorderPoint());
         inventory.setLastUpdatedAt(nowUtc());
         return inventoryRepository.save(inventory);
     }

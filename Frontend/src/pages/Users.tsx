@@ -1,22 +1,28 @@
-import { useInventoryStore } from '@/store';
+import { useQuery } from '@tanstack/react-query';
+import { userService } from '@/services/userService';
 import { DataTable } from '@/components/ui/data-table';
 import { Badge } from '@/components/ui/badge';
 import { Avatar } from '@/components/ui/avatar';
 import { ROLE_CONFIG } from '@/config/permissions';
-import type { User } from '@/types';
 
 export default function Users() {
-  const users = useInventoryStore((s) => s.users);
+  const { data: users = [], isLoading } = useQuery({
+    queryKey: ['users'],
+    queryFn: () => userService.getAll(),
+  });
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-extrabold tracking-tight text-slate-800">User Management</h1>
-        <p className="text-sm text-slate-500 font-medium mt-1">{users.length} registered users across the platform</p>
+        <p className="text-sm text-slate-500 font-medium mt-1">
+          {isLoading ? 'Loading...' : `${users.length} registered users across the platform`}
+        </p>
       </div>
 
-      <DataTable<User>
+      <DataTable
         data={users}
+        isLoading={isLoading}
         searchPlaceholder="Search users by name or email..."
         searchKey={(item) => `${item.name} ${item.email} ${item.role}`}
         pageSize={10}
@@ -36,7 +42,11 @@ export default function Users() {
           {
             key: 'role', header: 'Role',
             render: (item) => {
-              const config = ROLE_CONFIG[item.role];
+              const config = ROLE_CONFIG[item.role as keyof typeof ROLE_CONFIG] || {
+                label: item.role,
+                color: 'text-slate-700',
+                bgColor: 'bg-slate-50',
+              };
               return <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${config.bgColor} ${config.color}`}>{config.label}</span>;
             },
           },

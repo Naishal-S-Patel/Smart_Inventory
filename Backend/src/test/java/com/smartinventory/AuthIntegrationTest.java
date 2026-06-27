@@ -15,7 +15,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
@@ -53,22 +53,31 @@ class AuthIntegrationTest {
     @BeforeEach
     void setUp() {
         refreshTokenRepository.deleteAll();
-        userRepository.deleteAll();
-        roleRepository.deleteAll();
 
-        Role role = roleRepository.save(new Role(RoleName.ADMIN));
+        Role role = roleRepository.findByName(RoleName.ADMIN)
+                .orElseGet(() -> roleRepository.save(new Role(RoleName.ADMIN)));
 
         OffsetDateTime now = OffsetDateTime.now(clock).withOffsetSameInstant(ZoneOffset.UTC);
-        User user = new User();
-        user.setEmail("admin@smartinventory.com");
+        User user = userRepository.findByEmailIgnoreCase("admin@smartinventory.com")
+                .orElseGet(() -> {
+                    User newUser = new User();
+                    newUser.setEmail("admin@smartinventory.com");
+                    newUser.setFirstName("Admin");
+                    newUser.setLastName("User");
+                    newUser.setActive(true);
+                    newUser.setFailedLoginAttempts(0);
+                    newUser.setCreatedAt(now);
+                    return newUser;
+                });
         user.setPasswordHash(passwordEncoder.encode("Password123!"));
-        user.setFirstName("Admin");
-        user.setLastName("User");
-        user.setActive(true);
-        user.setFailedLoginAttempts(0);
-        user.setCreatedAt(now);
         user.setUpdatedAt(now);
-        user.getRoles().add(role);
+        
+        if (user.getRoles() == null) {
+            user.setRoles(new java.util.HashSet<>());
+        }
+        if (!user.getRoles().contains(role)) {
+            user.getRoles().add(role);
+        }
         userRepository.save(user);
     }
 

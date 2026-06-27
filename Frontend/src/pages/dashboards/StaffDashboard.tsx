@@ -1,22 +1,88 @@
-import { useInventoryStore } from '@/store';
+import * as React from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { inventoryService } from '@/services/inventoryService';
+import { purchaseOrderService } from '@/services/purchaseOrderService';
+import { useWebSocket } from '@/hooks/useWebSocket';
 import { StatCard } from '@/components/ui/stat-card';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ArrowRightLeft, PackageCheck, ShoppingCart, AlertTriangle } from 'lucide-react';
 
-export default function StaffDashboard() {
-  const products = useInventoryStore((s) => s.products);
-  const transactions = useInventoryStore((s) => s.transactions);
-  const purchaseOrders = useInventoryStore((s) => s.purchaseOrders);
-  const warehouseTransfers = useInventoryStore((s) => s.warehouseTransfers);
+function parseTransferNotes(notes: string | null) {
+  if (!notes) return { destination: 'Unknown Warehouse', originalNotes: '' };
+  const toMatch = notes.match(/^To:\s*([^|]+)(?:\s*\|\s*Notes:\s*(.*))?$/);
+  if (toMatch) {
+    return {
+      destination: toMatch[1].trim(),
+      originalNotes: toMatch[2]?.trim() || '',
+    };
+  }
+  return { destination: 'Unknown Warehouse', originalNotes: notes };
+}
 
-  const todaysMovements = transactions.filter(t => {
-    const today = new Date().toDateString();
-    return new Date(t.timestamp).toDateString() === today;
-  }).length || transactions.length;
-  const pendingReceipts = purchaseOrders.filter(po => po.status === 'Sent').length;
-  const todaysTransfers = warehouseTransfers.filter(t => t.status === 'completed').length;
-  const lowStockItems = products.filter(p => p.status === 'Low Stock').length;
+export default function StaffDashboard() {
+  const queryClient = useQueryClient();
+
+  // Invalidate and refresh queries on any WebSocket event
+  useWebSocket('/topic/alerts', () => {
+    queryClient.invalidateQueries();
+  });
+
+  const { data: transactionsPage } = useQuery({
+    queryKey: ['staff-transactions'],
+    queryFn: () => inventoryService.getTransactions({ size: 50 }),
+  });
+
+  const { data: purchaseOrdersPage } = useQuery({
+    queryKey: ['staff-pos'],
+    queryFn: () => purchaseOrderService.getAll({ size: 50 }),
+  });
+
+  const { data: transfersPage } = useQuery({
+    queryKey: ['staff-transfers'],
+    queryFn: () => inventoryService.getTransactions({ transactionType: 'TRANSFER_OUT', size: 50 }),
+  });
+
+  const { data: lowStockData } = useQuery({
+    queryKey: ['staff-low-stock'],
+    queryFn: () => inventoryService.getLowStock({ size: 50 }),
+  });
+
+  const transactions = transactionsPage?.content ?? [];
+  const purchaseOrders = purchaseOrdersPage?.content ?? [];
+  const rawTransfers = transfersPage?.content ?? [];
+  const lowStockItems = lowStockData?.totalElements ?? 0;
+
+  const todaysMovements = React.useMemo(() => {
+    const todayStr = new Date().toDateString();
+    return transactions.filter(t => new Date(t.createdAt).toDateString() === todayStr).length;
+  }, [transactions]);
+
+  const pendingReceipts = React.useMemo(() => {
+    return purchaseOrders.filter(po => {
+      const s = po.status.toUpperCase();
+      return s === 'SENT' || s === 'APPROVED';
+    }).length;
+  }, [purchaseOrders]);
+
+  const todaysTransfers = React.useMemo(() => {
+    const todayStr = new Date().toDateString();
+    return rawTransfers.filter(t => new Date(t.createdAt).toDateString() === todayStr).length;
+  }, [rawTransfers]);
+
+  const transfers = React.useMemo(() => {
+    return rawTransfers.map((tx) => {
+      const { destination } = parseTransferNotes(tx.notes);
+      return {
+        id: tx.id,
+        transferNumber: tx.referenceId || `TR-${tx.id.substring(0, 8).toUpperCase()}`,
+        sourceWarehouseName: tx.warehouseName || 'Source Warehouse',
+        destinationWarehouseName: destination,
+        quantity: Math.abs(tx.quantity),
+        status: 'completed',
+      };
+    });
+  }, [rawTransfers]);
 
   return (
     <div className="space-y-6">
@@ -39,24 +105,27 @@ export default function StaffDashboard() {
             <CardDescription>Warehouse-to-warehouse stock movements</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            {warehouseTransfers.slice(0, 4).map((transfer) => (
+            {transfers.slice(0, 4).map((transfer) => (
               <div key={transfer.id} className="flex items-center justify-between p-3.5 rounded-lg border border-slate-100 bg-slate-50/30 hover:border-slate-200 transition-colors">
                 <div className="min-w-0 space-y-1">
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-bold text-slate-700">{transfer.transferNumber}</span>
-                    <Badge variant={transfer.status === 'completed' ? 'success' : transfer.status === 'in_transit' ? 'info' : transfer.status === 'pending' ? 'warning' : 'secondary'} className="text-[9px] font-bold capitalize">
-                      {transfer.status.replace('_', ' ')}
+                    <Badge variant="success" className="text-[9px] font-bold capitalize">
+                      {transfer.status}
                     </Badge>
                   </div>
-                  <p className="text-[11px] text-slate-500">
+                  <p className="text-[11px] text-slate-500 font-medium">
                     {transfer.sourceWarehouseName} → {transfer.destinationWarehouseName}
                   </p>
                 </div>
                 <span className="text-xs font-mono font-bold text-slate-600 shrink-0">
-                  {transfer.items.reduce((sum, i) => sum + i.quantity, 0)} units
+                  {transfer.quantity} units
                 </span>
               </div>
             ))}
+            {transfers.length === 0 && (
+              <div className="text-center py-8 text-xs text-slate-400">No transfers recorded</div>
+            )}
           </CardContent>
         </Card>
 
@@ -66,25 +135,31 @@ export default function StaffDashboard() {
             <CardDescription>Shipments awaiting warehouse check-in</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            {purchaseOrders.filter(po => po.status === 'Sent' || po.status === 'Approved').slice(0, 4).map((po) => (
+            {purchaseOrders.filter(po => {
+              const s = po.status.toUpperCase();
+              return s === 'SENT' || s === 'APPROVED';
+            }).slice(0, 4).map((po) => (
               <div key={po.id} className="flex items-center justify-between p-3.5 rounded-lg border border-slate-100 bg-slate-50/30 hover:border-slate-200 transition-colors">
                 <div className="min-w-0 space-y-1">
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-bold text-slate-700">{po.orderNumber}</span>
-                    <Badge variant={po.status === 'Sent' ? 'info' : 'warning'} className="text-[9px] font-bold">
+                    <Badge variant={po.status.toUpperCase() === 'SENT' ? 'info' : 'warning'} className="text-[9px] font-bold">
                       {po.status}
                     </Badge>
                   </div>
-                  <p className="text-[11px] text-slate-500">
+                  <p className="text-[11px] text-slate-500 font-medium">
                     {po.items.length} items · {po.items.reduce((sum, i) => sum + i.quantity, 0)} units total
                   </p>
                 </div>
-                <span className="text-[11px] text-slate-400 shrink-0">
-                  {new Date(po.orderDate).toLocaleDateString()}
+                <span className="text-[11px] text-slate-400 shrink-0 font-medium">
+                  {new Date(po.createdAt).toLocaleDateString()}
                 </span>
               </div>
             ))}
-            {purchaseOrders.filter(po => po.status === 'Sent' || po.status === 'Approved').length === 0 && (
+            {purchaseOrders.filter(po => {
+              const s = po.status.toUpperCase();
+              return s === 'SENT' || s === 'APPROVED';
+            }).length === 0 && (
               <div className="text-center py-8 text-xs text-slate-400">No pending receipts</div>
             )}
           </CardContent>

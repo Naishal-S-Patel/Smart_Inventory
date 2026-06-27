@@ -24,10 +24,10 @@ const FEATURES = [
 ];
 
 const DEMO_ACCOUNTS = [
-  { role: 'Admin', email: 'a.mercer@smartinventory.com' },
-  { role: 'Manager', email: 's.jenkins@smartinventory.com' },
-  { role: 'Staff', email: 'm.torres@smartinventory.com' },
-  { role: 'Analyst', email: 'c.oswald@smartinventory.com' },
+  { role: 'Admin', email: 'admin@smartinventory.com' },
+  { role: 'Manager', email: 'manager@smartinventory.com' },
+  { role: 'Staff', email: 'staff@smartinventory.com' },
+  { role: 'Analyst', email: 'analyst@smartinventory.com' },
 ];
 
 export default function Login() {
@@ -52,8 +52,8 @@ export default function Login() {
   } = useForm<LoginSchemaType>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      email: 'a.mercer@smartinventory.com',
-      password: 'password123',
+      email: 'admin@smartinventory.com',
+      password: 'Password123!',
       rememberMe: true,
     },
   });
@@ -61,8 +61,8 @@ export default function Login() {
   const onSubmit = async (data: LoginSchemaType) => {
     setLoading(true);
     try {
-      await login(data.email, data.password);
-      navigate('/dashboard');
+      const success = await login(data.email, data.password);
+      if (success) navigate('/dashboard');
     } catch (err) {
       console.error(err);
     } finally {
@@ -257,7 +257,7 @@ export default function Login() {
                   type="button"
                   onClick={() => {
                     setValue('email', account.email);
-                    setValue('password', 'password123');
+                    setValue('password', 'Password123!');
                   }}
                   className="flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 hover:border-emerald-300 hover:bg-emerald-50/30 transition-all text-left group"
                 >

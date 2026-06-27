@@ -1,5 +1,6 @@
 package com.smartinventory.controller;
 
+import com.smartinventory.aspect.Auditable;
 import com.smartinventory.dto.ApiResponse;
 import com.smartinventory.dto.ProductCreateRequest;
 import com.smartinventory.dto.ProductDTO;
@@ -38,7 +39,7 @@ public class ProductController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('STAFF','MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER','STAFF','ANALYST')")
     public ResponseEntity<ApiResponse<Page<ProductDTO>>> getProducts(
             @RequestParam(value = "q", required = false) String query,
             @RequestParam(value = "categoryId", required = false) UUID categoryId,
@@ -49,14 +50,15 @@ public class ProductController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('STAFF','MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER','STAFF','ANALYST')")
     public ResponseEntity<ApiResponse<ProductDTO>> getProduct(@PathVariable UUID id) {
         ProductDTO product = productService.getProductById(id);
         return ResponseEntity.ok(ApiResponse.success(product, "Product retrieved", nowUtc()));
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('MANAGER')")
+    @PreAuthorize("hasAnyRole('MANAGER','ADMIN')")
+    @Auditable(entity = "Product", action = "CREATE")
     public ResponseEntity<ApiResponse<ProductDTO>> createProduct(
             @Valid @RequestBody ProductCreateRequest request
     ) {
@@ -65,7 +67,8 @@ public class ProductController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('MANAGER')")
+    @PreAuthorize("hasAnyRole('MANAGER','ADMIN')")
+    @Auditable(entity = "Product", action = "UPDATE")
     public ResponseEntity<ApiResponse<ProductDTO>> updateProduct(
             @PathVariable UUID id,
             @Valid @RequestBody ProductUpdateRequest request
@@ -75,7 +78,8 @@ public class ProductController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('MANAGER')")
+    @PreAuthorize("hasAnyRole('MANAGER','ADMIN')")
+    @Auditable(entity = "Product", action = "DELETE")
     public ResponseEntity<ApiResponse<Void>> deleteProduct(@PathVariable UUID id) {
         productService.softDeleteProduct(id);
         return ResponseEntity.ok(ApiResponse.success(null, "Product deactivated", nowUtc()));

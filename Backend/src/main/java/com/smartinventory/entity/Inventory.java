@@ -1,5 +1,8 @@
 package com.smartinventory.entity;
 
+import java.time.OffsetDateTime;
+import java.util.UUID;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.EmbeddedId;
 import jakarta.persistence.Entity;
@@ -11,7 +14,6 @@ import jakarta.persistence.MapsId;
 import jakarta.persistence.Table;
 import jakarta.persistence.Transient;
 import jakarta.persistence.UniqueConstraint;
-import java.time.OffsetDateTime;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -24,15 +26,14 @@ import lombok.Setter;
         name = "inventory",
         uniqueConstraints = {
                 @UniqueConstraint(
-                        name = "uq_inventories_product_warehouse",
+                        name = "uq_inventory_product_warehouse",
                         columnNames = {"product_id", "warehouse_id"}
                 )
         },
         indexes = {
-                @Index(name = "idx_inventories_product_warehouse", columnList = "product_id, warehouse_id"),
-                @Index(name = "idx_inventories_product", columnList = "product_id"),
-                @Index(name = "idx_inventories_warehouse", columnList = "warehouse_id"),
-                @Index(name = "idx_inventories_low_stock", columnList = "quantity_on_hand, reserved_quantity")
+                @Index(name = "idx_inventory_product_warehouse", columnList = "product_id, warehouse_id"),
+                @Index(name = "idx_inventory_warehouse", columnList = "warehouse_id"),
+                @Index(name = "idx_inventory_low_stock", columnList = "warehouse_id, quantity_on_hand, reserved_quantity")
         }
 )
 public class Inventory {
@@ -64,6 +65,15 @@ public class Inventory {
 
     @Transient
     public int getAvailableQuantity() {
-        return quantityOnHand - reservedQuantity;
+        return Math.max(0, quantityOnHand - reservedQuantity);
+    }
+
+    /** Convenience for repos that look up by product + warehouse */
+    public UUID getProductId() {
+        return product != null ? product.getId() : null;
+    }
+
+    public UUID getWarehouseId() {
+        return warehouse != null ? warehouse.getId() : null;
     }
 }

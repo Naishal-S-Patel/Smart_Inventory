@@ -39,13 +39,14 @@ public class InventoryMapper {
             return null;
         }
         Product product = inventory.getProduct();
-        ProductDTO productDto = productMapper.toProductDto(product);
+        ProductDTO productDto = product != null ? productMapper.toProductDto(product) : null;
+        Warehouse warehouse = inventory.getWarehouse();
 
         return InventoryDTO.builder()
-                .productId(inventory.getProduct().getId())
-                .warehouseId(inventory.getWarehouse().getId())
+                .productId(product != null ? product.getId() : null)
+                .warehouseId(warehouse != null ? warehouse.getId() : null)
                 .product(productDto)
-                .warehouse(toWarehouseDto(inventory.getWarehouse()))
+                .warehouse(warehouse != null ? toWarehouseDto(warehouse) : null)
                 .quantityOnHand(inventory.getQuantityOnHand())
                 .reservedQuantity(inventory.getReservedQuantity())
                 .availableQuantity(inventory.getAvailableQuantity())
@@ -57,13 +58,22 @@ public class InventoryMapper {
         if (transaction == null) {
             return null;
         }
+        Product product = transaction.getProduct();
+        Warehouse warehouse = transaction.getWarehouse();
         return InventoryTransactionDTO.builder()
                 .id(transaction.getId())
-                .productId(transaction.getProduct().getId())
-                .warehouseId(transaction.getWarehouse().getId())
+                .productId(product != null ? product.getId() : null)
+                .productName(product != null ? product.getName() : null)
+                .sku(product != null ? product.getSku() : null)
+                .warehouseId(warehouse != null ? warehouse.getId() : null)
+                .warehouseName(warehouse != null ? warehouse.getName() : null)
                 .transactionType(transaction.getTransactionType())
                 .quantity(transaction.getQuantity())
                 .createdAt(transaction.getCreatedAt())
+                .referenceId(transaction.getReferenceId())
+                .referenceType(transaction.getReferenceType())
+                .notes(transaction.getNotes())
+                .createdBy(transaction.getCreatedBy())
                 .build();
     }
 }

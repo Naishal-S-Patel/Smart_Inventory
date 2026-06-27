@@ -16,11 +16,14 @@ import com.smartinventory.entity.Supplier;
 import com.smartinventory.entity.Warehouse;
 import com.smartinventory.exception.InvalidPurchaseOrderStateException;
 import com.smartinventory.repository.CategoryRepository;
+import com.smartinventory.repository.CustomerRepository;
 import com.smartinventory.repository.InventoryRepository;
 import com.smartinventory.repository.InventoryTransactionRepository;
 import com.smartinventory.repository.ProductRepository;
 import com.smartinventory.repository.PurchaseOrderItemRepository;
 import com.smartinventory.repository.PurchaseOrderRepository;
+import com.smartinventory.repository.SalesOrderItemRepository;
+import com.smartinventory.repository.SalesOrderRepository;
 import com.smartinventory.repository.SupplierRepository;
 import com.smartinventory.repository.WarehouseRepository;
 import java.math.BigDecimal;
@@ -69,10 +72,22 @@ class PurchaseOrderIntegrationTest {
     private InventoryTransactionRepository inventoryTransactionRepository;
 
     @Autowired
+    private SalesOrderItemRepository salesOrderItemRepository;
+
+    @Autowired
+    private SalesOrderRepository salesOrderRepository;
+
+    @Autowired
+    private CustomerRepository customerRepository;
+
+    @Autowired
     private Clock clock;
 
     @BeforeEach
     void cleanDatabase() {
+        salesOrderItemRepository.deleteAll();
+        salesOrderRepository.deleteAll();
+        customerRepository.deleteAll();
         purchaseOrderItemRepository.deleteAll();
         purchaseOrderRepository.deleteAll();
         supplierRepository.deleteAll();
@@ -242,6 +257,8 @@ class PurchaseOrderIntegrationTest {
         warehouse.setState("State");
         warehouse.setCapacity(1000);
         warehouse.setActive(true);
+        warehouse.setCreatedAt(nowUtc());
+        warehouse.setUpdatedAt(nowUtc());
         return warehouseRepository.save(warehouse);
     }
 

@@ -1,5 +1,6 @@
 package com.smartinventory.controller;
 
+import com.smartinventory.aspect.Auditable;
 import com.smartinventory.dto.ApiResponse;
 import com.smartinventory.dto.PurchaseOrderApproveRequest;
 import com.smartinventory.dto.PurchaseOrderCreateRequest;
@@ -44,7 +45,7 @@ public class PurchaseOrderController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('STAFF','MANAGER','ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER','STAFF','ANALYST')")
     @Operation(summary = "List purchase orders")
     public ResponseEntity<ApiResponse<Page<PurchaseOrderDTO>>> getPurchaseOrders(
             @Parameter(description = "Purchase order status")
@@ -60,7 +61,7 @@ public class PurchaseOrderController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('STAFF','MANAGER','ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER','STAFF','ANALYST')")
     @Operation(summary = "Get purchase order")
     public ResponseEntity<ApiResponse<PurchaseOrderDTO>> getPurchaseOrder(@PathVariable String id) {
         PurchaseOrderDTO purchaseOrder = purchaseOrderService.getPurchaseOrderById(id);
@@ -70,6 +71,7 @@ public class PurchaseOrderController {
     @PostMapping
     @PreAuthorize("hasAnyRole('MANAGER','ADMIN')")
     @Operation(summary = "Create purchase order")
+    @Auditable(entity = "PurchaseOrder", action = "CREATE")
     public ResponseEntity<ApiResponse<PurchaseOrderDTO>> createPurchaseOrder(
             @Valid @RequestBody PurchaseOrderCreateRequest request
     ) {
@@ -80,6 +82,7 @@ public class PurchaseOrderController {
     @PutMapping("/{id}/approve")
     @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Approve purchase order")
+    @Auditable(entity = "PurchaseOrder", action = "APPROVE")
     public ResponseEntity<ApiResponse<PurchaseOrderDTO>> approvePurchaseOrder(
             @PathVariable String id,
             @Valid @RequestBody PurchaseOrderApproveRequest request
@@ -99,6 +102,7 @@ public class PurchaseOrderController {
     @PutMapping("/{id}/receive")
     @PreAuthorize("hasAnyRole('MANAGER','ADMIN')")
     @Operation(summary = "Receive purchase order")
+    @Auditable(entity = "PurchaseOrder", action = "RECEIVE")
     public ResponseEntity<ApiResponse<PurchaseOrderDTO>> receivePurchaseOrder(
             @PathVariable String id,
             @Valid @RequestBody PurchaseOrderReceiveRequest request
@@ -110,6 +114,7 @@ public class PurchaseOrderController {
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Cancel purchase order")
+    @Auditable(entity = "PurchaseOrder", action = "CANCEL")
     public ResponseEntity<ApiResponse<Void>> cancelPurchaseOrder(@PathVariable String id) {
         purchaseOrderService.cancelPurchaseOrder(id);
         return ResponseEntity.ok(ApiResponse.success(null, "Purchase order cancelled", nowUtc()));

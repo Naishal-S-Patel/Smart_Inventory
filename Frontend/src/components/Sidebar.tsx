@@ -15,10 +15,6 @@ interface SidebarProps {
 
 export function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobileOpen }: SidebarProps) {
   const currentUser = useInventoryStore((state) => state.currentUser);
-  const setRole = useInventoryStore((state) => state.setRole);
-  const unreadAlertsCount = useInventoryStore((state) =>
-    state.alerts.filter((a) => a.status === 'unread').length
-  );
 
   if (!currentUser) return null;
 
@@ -32,10 +28,8 @@ export function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobileOpen }: 
     collapsed: { width: '72px' },
   };
 
-  const roles = ['ADMIN', 'MANAGER', 'STAFF', 'ANALYST'] as const;
-
   const renderNavItem = (item: typeof navItems[0]) => {
-    const badgeCount = item.badge === 'alerts' ? unreadAlertsCount : undefined;
+    const badgeCount = undefined; // alerts fetched via React Query in Alerts page
 
     return (
       <NavLink
@@ -149,23 +143,12 @@ export function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobileOpen }: 
             )}
           </div>
 
-          {/* Demo role switcher */}
+          {/* Role display only — no demo switcher in production */}
           {!collapsed && (
-            <div className="mt-3">
-              <label className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">
-                Demo Role:
-              </label>
-              <select
-                value={currentUser.role}
-                onChange={(e) => setRole(e.target.value as any)}
-                className="w-full text-[11px] font-medium bg-background border border-border rounded-lg py-1.5 px-2 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 text-foreground cursor-pointer"
-              >
-                {roles.map((r) => (
-                  <option key={r} value={r}>
-                    {ROLE_CONFIG[r].label}
-                  </option>
-                ))}
-              </select>
+            <div className="mt-2">
+              <span className={cn('text-[10px] font-semibold px-2 py-0.5 rounded-full', roleConfig.bgColor, roleConfig.color)}>
+                {roleConfig.label}
+              </span>
             </div>
           )}
         </div>

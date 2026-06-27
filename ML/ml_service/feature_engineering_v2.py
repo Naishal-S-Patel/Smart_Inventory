@@ -46,7 +46,7 @@ def _festival_flag(date_series: pd.Series) -> pd.Series:
     return pd.Series(flags, index=date_series.index)
 
 
-def build_features(df: pd.DataFrame) -> pd.DataFrame:
+def build_features(df: pd.DataFrame, drop_na: bool = True) -> pd.DataFrame:
     required_columns = {
         "date",
         "product_id",

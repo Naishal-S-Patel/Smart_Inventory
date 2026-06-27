@@ -62,6 +62,14 @@ class AnomalyRecord(BaseModel):
     value: float
     score: float
     timestamp: str
+    product_id: str | None = None
+    product_name: str | None = None
+    warehouse_id: str | None = None
+    warehouse_name: str | None = None
+    severity: str | None = None
+    reason: str | None = None
+    anomaly_score: float | None = None
+    quantity: float | None = None
 
 
 class AnomalyResponse(BaseModel):
@@ -81,3 +89,16 @@ class DashboardSummaryResponse(BaseModel):
     predicted_stockouts: int
     pending_purchase_orders: int
     generated_at: str
+
+
+class ReportInsight(BaseModel):
+    headline: str
+    metric: str
+    trend: str  # "positive" | "negative" | "neutral"
+
+
+class ReportSummaryResponse(BaseModel):
+    insights: list[str]
+    report_insights: dict[str, dict]
+    generated_at: str
+

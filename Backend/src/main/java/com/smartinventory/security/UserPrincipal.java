@@ -15,7 +15,7 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 @Getter
-public class UserPrincipal implements UserDetails {
+public class UserPrincipal implements UserDetails, java.security.Principal {
 
     private final UUID id;
     private final String email;
@@ -87,5 +87,10 @@ public class UserPrincipal implements UserDetails {
     @Override
     public boolean isEnabled() {
         return active;
+    }
+
+    @Override
+    public String getName() {
+        return email;
     }
 }

@@ -37,7 +37,7 @@ public class CategoryController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('STAFF','MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER','STAFF','ANALYST')")
     public ResponseEntity<ApiResponse<Page<CategoryDTO>>> getCategories(
             @PageableDefault(size = 20) Pageable pageable
     ) {
@@ -46,14 +46,14 @@ public class CategoryController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('STAFF','MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER','STAFF','ANALYST')")
     public ResponseEntity<ApiResponse<CategoryDTO>> getCategory(@PathVariable UUID id) {
         CategoryDTO category = categoryService.getCategoryById(id);
         return ResponseEntity.ok(ApiResponse.success(category, "Category retrieved", nowUtc()));
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('MANAGER')")
+    @PreAuthorize("hasAnyRole('MANAGER','ADMIN')")
     public ResponseEntity<ApiResponse<CategoryDTO>> createCategory(
             @Valid @RequestBody CategoryCreateRequest request
     ) {
@@ -62,7 +62,7 @@ public class CategoryController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('MANAGER')")
+    @PreAuthorize("hasAnyRole('MANAGER','ADMIN')")
     public ResponseEntity<ApiResponse<CategoryDTO>> updateCategory(
             @PathVariable UUID id,
             @Valid @RequestBody CategoryUpdateRequest request
@@ -72,7 +72,7 @@ public class CategoryController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('MANAGER')")
+    @PreAuthorize("hasAnyRole('MANAGER','ADMIN')")
     public ResponseEntity<ApiResponse<Void>> deleteCategory(@PathVariable UUID id) {
         categoryService.deleteCategory(id);
         return ResponseEntity.ok(ApiResponse.success(null, "Category deleted", nowUtc()));

@@ -7,6 +7,7 @@ psycopg2-binary
 faker
 numpy
 scikit-learn
+scipy
 matplotlib
 holidays
 prophet

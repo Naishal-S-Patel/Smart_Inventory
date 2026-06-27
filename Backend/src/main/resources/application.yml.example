@@ -1,0 +1,55 @@
+server:
+  port: 8080
+  forward-headers-strategy: framework
+
+spring:
+  application:
+    name: smart-inventory
+  datasource:
+    url: jdbc:postgresql://localhost:5432/smart_inventory
+    username: YOUR_DB_USERNAME
+    password: YOUR_DB_PASSWORD
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: none
+    properties:
+      hibernate:
+        format_sql: true
+    open-in-view: false
+  flyway:
+    enabled: false
+
+jwt:
+  secret: CHANGE_ME_USE_A_LONG_RANDOM_STRING_AT_LEAST_64_CHARS
+  access-token-exp-minutes: 45
+  refresh-token-exp-days: 7
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: when_authorized
+
+app:
+  cors:
+    allowed-origins:
+      - "http://localhost:3000"
+    allowed-methods:
+      - "GET"
+      - "POST"
+      - "PUT"
+      - "DELETE"
+      - "OPTIONS"
+    allowed-headers:
+      - "*"
+    allow-credentials: true
+  rate-limit:
+    requests-per-minute: 60
+    window-seconds: 60
+  websocket:
+    allowed-origins:
+      - "http://localhost:3000"

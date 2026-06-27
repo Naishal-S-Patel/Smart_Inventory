@@ -52,4 +52,16 @@ public class InventoryTransaction {
 
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
+
+    @Column(name = "reference_id", length = 128)
+    private String referenceId;
+
+    @Column(name = "reference_type", length = 64)
+    private String referenceType;
+
+    @Column(name = "notes")
+    private String notes;
+
+    @Column(name = "created_by", length = 255)
+    private String createdBy;
 }

@@ -43,8 +43,7 @@ class ProductServiceTest {
     @Mock
     private CategoryRepository categoryRepository;
 
-    @Mock
-    private ProductMapper productMapper;
+    private final ProductMapper productMapper = new ProductMapper();
 
     private ProductService productService;
 
@@ -82,13 +81,10 @@ class ProductServiceTest {
         saved.setCategory(category);
         saved.setActive(true);
 
-        ProductDTO dto = ProductDTO.builder().id(saved.getId()).sku(saved.getSku()).build();
-
         when(productRepository.existsBySkuIgnoreCase("SKU-100")).thenReturn(false);
         when(productRepository.existsByBarcode("123456")).thenReturn(false);
         when(categoryRepository.findById(categoryId)).thenReturn(Optional.of(category));
         when(productRepository.save(any(Product.class))).thenReturn(saved);
-        when(productMapper.toProductDto(saved)).thenReturn(dto);
 
         ProductDTO result = productService.createProduct(request);
 
@@ -178,7 +174,6 @@ class ProductServiceTest {
 
         Page<Product> page = new PageImpl<>(java.util.List.of(product));
         when(productRepository.searchActiveProducts(eq("milk"), eq(null), eq(pageable))).thenReturn(page);
-        when(productMapper.toProductDto(product)).thenReturn(ProductDTO.builder().id(product.getId()).sku("SKU-500").build());
 
         Page<ProductDTO> result = productService.getAllProducts("milk", null, pageable);
 

@@ -2,11 +2,13 @@ package com.smartinventory.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import java.time.OffsetDateTime;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 
 @Getter
 @Builder
+@AllArgsConstructor
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class ApiResponse<T> {
 

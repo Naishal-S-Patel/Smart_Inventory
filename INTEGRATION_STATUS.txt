@@ -1,0 +1,232 @@
+================================================================================
+SMART INVENTORY — INTEGRATION STATUS
+Generated: June 2, 2026
+================================================================================
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+COMPLETED ✅
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+BACKEND FIXES
+─────────────
+[✅] Fixed all DTO compilation errors — added @AllArgsConstructor to all 16 DTOs
+     (SalesOrderDTO, ProductDTO, PurchaseOrderDTO, InventoryDTO, WarehouseDTO,
+      CustomerDTO, CategoryDTO, SupplierDTO, SalesOrderItemDTO, PurchaseOrderItemDTO,
+      InventoryTransactionDTO, AuthResponse, AuthUserDto, JwtAuthenticationResponse,
+      ApiResponse, ErrorResponse + ErrorDetail)
+
+[✅] Fixed WebSocketAuthInterceptor.java compile error (line 48)
+     — cast UserPrincipal to java.security.Principal in ternary expression
+
+[✅] Fixed Flyway version (pom.xml)
+     — Upgraded flyway.version to 10.21.0 (supports PostgreSQL 18)
+     — Added flyway-database-postgresql dependency (required since Flyway 10)
+
+[✅] Fixed Flyway migration conflict
+     — V6__add_product_search.sql rewrote as no-op (V3 already creates the column)
+
+[✅] Fixed Flyway configuration (application.yml)
+     — flyway.enabled = false (schema already exists with real data)
+     — ddl-auto = none (Hibernate does not touch schema)
+     — Removed noisy generate_statistics / LOG_QUERIES_SLOWER_THAN_MS logging
+
+[✅] Fixed Inventory entity — table name mismatch
+     — Changed @Table(name = "inventory") → @Table(name = "inventories")
+     — Removed non-existent reorder_point column from entity
+     — Switched from @EmbeddedId (composite key) to @Id UUID (matches actual DB schema)
+     — Added @Version column for optimistic locking
+
+[✅] Fixed InventoryRepository
+     — Changed JpaRepository<Inventory, InventoryId> → JpaRepository<Inventory, UUID>
+     — Fixed low-stock JPQL query: i.reorderPoint → p.reorderPoint (it's on Product)
+
+[✅] Fixed InventoryService
+     — Removed all inventory.setReorderPoint() / inventory.setId(new InventoryId())
+     — Replaced saved.getReorderPoint() with product.getReorderPoint()
+     — Removed InventoryId import
+
+[✅] Deleted stray binary file: dto/image.png
+
+[✅] SeedDataRunner verified — password is "Password123!" for all demo users
+
+ML SERVICE FIXES
+────────────────
+[✅] Fixed ML tables.py — complete rewrite
+     — "inventory" → "inventories" (matches backend migration)
+     — Removed non-existent reorder_point column from inventories table
+     — Added products table with all real columns (sku, name, category_id,
+       unit_cost, selling_price, reorder_point, etc.)
+     — Added categories, sales_orders, sales_order_items, purchase_orders tables
+     — create_tables() only creates missing tables, never modifies existing schema
+
+[✅] Fixed ML data_access.py — SQL query fix
+     — "FROM inventory i" → "FROM inventories i"
+     — "i.reorder_point" → "p.reorder_point" (joined from products table)
+
+[✅] Fixed ML forecast schema (schemas/forecast.py)
+     — Added productName, category, warehouse, confidence fields to ForecastResponse
+     — Added productName, category, warehouseName fields to LowStockAlert
+
+[✅] Fixed ML forecast_service.py
+     — Enriched reorder recommendation response with productName and category
+     — Enriched low_stock alerts with productName, category, and better messages
+
+FRONTEND — INFRASTRUCTURE
+──────────────────────────
+[✅] Added Vite proxy (vite.config.ts)
+     — /api → http://localhost:8080 (Spring Boot)
+     — /ml  → http://localhost:8000 (FastAPI)
+
+[✅] Created API client (src/lib/apiClient.ts)
+     — Axios instance for backend (baseURL: /api/v1)
+     — Axios instance for ML service (baseURL: /ml)
+     — JWT Bearer token injection on every request
+     — Auto-refresh on 401 with queue for concurrent requests
+     — Token storage: localStorage (si_access_token / si_refresh_token)
+
+[✅] Setup React Query (main.tsx)
+     — QueryClientProvider wrapping entire app
+     — staleTime: 30s, retry: 1, refetchOnWindowFocus: false
+
+[✅] Rewrote Zustand store (store/index.ts)
+     — Removed ALL mock data and simulation logic
+     — Auth only: login() calls real backend, logout() revokes token
+     — User persisted to localStorage for page refresh survival
+     — Theme state retained
+
+FRONTEND — SERVICE LAYER (all new files)
+─────────────────────────────────────────
+[✅] src/services/authService.ts    — login, logout, refresh (unwraps ApiResponse<T>)
+[✅] src/services/productService.ts — getAll (paged), getById, create, update, delete
+[✅] src/services/inventoryService.ts — getAll, getLowStock, getTransactions, adjust, transfer
+[✅] src/services/warehouseService.ts — getAll, getById
+[✅] src/services/supplierService.ts — getAll, create, update, delete
+[✅] src/services/purchaseOrderService.ts — getAll, getById, create, approve, send, receive, delete
+[✅] src/services/salesOrderService.ts — getAll, getById, create, confirm, complete, cancel
+[✅] src/services/categoryService.ts — getAll, create, update, delete
+[✅] src/services/mlService.ts — forecast, reorderRec, lowStockAlerts, dashboardSummary,
+                                  topProducts, categorySales, warehousePerf, fastMoving,
+                                  deadStock, anomalies, insights
+
+FRONTEND — PAGES REWRITTEN (mock → real API)
+─────────────────────────────────────────────
+[✅] Login.tsx — calls real authService.login(), correct demo credentials
+[✅] Products.tsx — React Query, server-side pagination, category filter
+[✅] Inventory.tsx — React Query, warehouse filter, low-stock count
+[✅] Warehouses.tsx — React Query, real warehouse data
+[✅] Suppliers.tsx — React Query, real supplier data
+[✅] PurchaseOrders.tsx — React Query, server-side pagination + status filter
+[✅] Alerts.tsx — ML low-stock alerts + anomalies, no mock data
+[✅] Forecasting.tsx — ML Prophet forecast chart, low-stock panel, real product selector
+[✅] Analytics.tsx — ML dashboard summary KPIs, top products, category sales,
+                      warehouse performance, dead stock, AI insights
+
+FRONTEND — COMPONENTS
+──────────────────────
+[✅] DataTable enhanced — added server-side pagination support (totalElements,
+     currentPage, onPageChange, onSearch, isLoading with spinner)
+[✅] Navbar.tsx — removed mock simulation controls and mock alert badge
+[✅] Sidebar.tsx — removed demo role switcher and mock alert count
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+REMAINING WORK ⏳
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+BACKEND — HIGH PRIORITY
+────────────────────────
+[ ] InventoryId.java — now unused class in entity package, delete it
+[ ] Test files (SalesOrderIntegrationTest, InventoryIntegrationTest) still use
+    old inventory.setId(new InventoryId()) and inventory.setReorderPoint() —
+    fix or they won't compile
+[ ] Verify InventoryNotFoundException constructor signature matches how it's called
+[ ] Check InventoryService.reserveStock / releaseReservedStock still compile
+    (they reference inventory.getReservedQuantity() which is fine)
+[ ] Add missing GET /suppliers/{id} endpoint to SupplierController
+[ ] Add Warehouse create/update endpoints to WarehouseController
+[ ] InventoryMapper.toInventoryDto: productId/warehouseId come from
+    inventory.getProduct().getId() — verify no NPE risk if lazy-loaded
+
+FRONTEND — REMAINING PAGES
+────────────────────────────
+[ ] Dashboard pages (AdminDashboard, ManagerDashboard, StaffDashboard, AnalystDashboard)
+    — still reading from old Zustand store (mock data) — connect to real APIs
+[ ] AuditLogs.tsx — still uses mock data — no backend audit log list endpoint exists yet
+[ ] Users.tsx — still uses mock data — needs admin user management API
+[ ] Settings.tsx — needs review
+[ ] Reports.tsx — static, no real report generation
+[ ] WarehouseTransfers.tsx — uses mock data (no transfer history endpoint in backend)
+[ ] ReceivePurchaseOrders.tsx — still uses mock data
+
+FRONTEND — REMAINING ISSUES
+─────────────────────────────
+[ ] CommandPalette.tsx — still reads from Zustand mock store (products, alerts)
+    — needs to use React Query data or be simplified
+[ ] RoleGuard.tsx — verify it still works after store simplification
+[ ] Remove src/mock/data.ts — still exists and imported by nothing now,
+    but should be deleted to avoid confusion
+[ ] Remove src/types/index.ts old Product/Warehouse/Supplier interfaces —
+    replace with types from services (ProductDTO etc.) throughout
+[ ] StatCard component referenced in Analytics.tsx — verify it exists and works
+[ ] CategoryIcon component referenced in old pages — no longer used, can be cleaned
+
+ML SERVICE — REMAINING
+────────────────────────
+[ ] /predict/demand endpoint is a stub — returns empty forecast[]
+    — remove or implement properly
+[ ] Anomaly detection: product names missing from some responses
+[ ] Run ML service startup to confirm tables.py fix works without errors
+[ ] Verify all Prophet model files are named by UUID matching real product IDs
+    (currently ~200 models named by original dataset IDs, not real DB UUIDs)
+[ ] Delete debug.py endpoint before production
+
+WEBSOCKET — NOT YET CONNECTED
+───────────────────────────────
+[ ] Frontend WebSocket client not created yet
+    — Backend has AlertEventPublisher + InventoryEventPublisher working
+    — Need useWebSocket hook in frontend to subscribe to /topic/alerts
+    — Dashboard should auto-refresh on inventory update events
+
+DATABASE
+────────
+[ ] inventories table has a version column — entity now maps it with @Version ✅
+    but DB column was already there, verify data seeded correctly
+[ ] V1 migration is empty — harmless but should add a comment
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+HOW TO START THE PROJECT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Backend (Spring Boot):
+   cd "d:\smartInventory - Copy\Backend"
+   .\mvnw.cmd spring-boot:run
+   → Runs on http://localhost:8080
+   → Demo users: admin@smartinventory.com / Password123!
+
+2. ML Service (FastAPI):
+   cd "d:\smartInventory - Copy\ML\ml_service"
+   pip install -r requirements.txt
+   uvicorn app.main:app --reload --port 8000
+   → Runs on http://localhost:8000
+
+3. Frontend (React + Vite):
+   cd "d:\smartInventory - Copy\Frontend"
+   npm install
+   npm run dev
+   → Runs on http://localhost:3000
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SUMMARY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Files Created:    13 new files
+Files Modified:   25+ files
+Mock Data Removed: 100% from pages that were rewritten
+Backend Fixes:    Entity/schema alignment, compilation errors, Flyway
+ML Fixes:         Schema mismatch, table name, enriched responses
+Integration:      Login, Products, Inventory, Warehouses, Suppliers,
+                  Purchase Orders, Alerts, Forecasting, Analytics
+
+Estimated completion: ~70% of full integration
+Remaining focus: Dashboard pages, delete unused files, WebSocket frontend,
+                 test file fixes, audit log endpoint
+================================================================================

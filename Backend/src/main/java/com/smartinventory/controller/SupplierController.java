@@ -40,7 +40,7 @@ public class SupplierController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('STAFF','MANAGER','ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER','STAFF','ANALYST')")
     @Operation(summary = "List suppliers")
     public ResponseEntity<ApiResponse<Page<SupplierDTO>>> getSuppliers(
             @PageableDefault(size = 20) Pageable pageable
@@ -68,6 +68,14 @@ public class SupplierController {
     ) {
         SupplierDTO supplier = supplierService.updateSupplier(id, request);
         return ResponseEntity.ok(ApiResponse.success(supplier, "Supplier updated", nowUtc()));
+    }
+
+    @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER','STAFF','ANALYST')")
+    @Operation(summary = "Get supplier by ID")
+    public ResponseEntity<ApiResponse<SupplierDTO>> getSupplier(@PathVariable UUID id) {
+        SupplierDTO supplier = supplierService.getSupplierById(id);
+        return ResponseEntity.ok(ApiResponse.success(supplier, "Supplier retrieved", nowUtc()));
     }
 
     @DeleteMapping("/{id}")

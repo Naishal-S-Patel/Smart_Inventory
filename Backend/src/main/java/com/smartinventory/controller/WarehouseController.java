@@ -1,8 +1,11 @@
 package com.smartinventory.controller;
 
 import com.smartinventory.dto.ApiResponse;
+import com.smartinventory.dto.WarehouseCreateRequest;
+import com.smartinventory.dto.WarehouseUpdateRequest;
 import com.smartinventory.dto.WarehouseDTO;
 import com.smartinventory.service.WarehouseService;
+import jakarta.validation.Valid;
 import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -14,6 +17,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -30,7 +36,7 @@ public class WarehouseController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('STAFF','MANAGER','ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER','STAFF','ANALYST')")
     public ResponseEntity<ApiResponse<Page<WarehouseDTO>>> getWarehouses(
             @PageableDefault(size = 20) Pageable pageable
     ) {
@@ -39,10 +45,29 @@ public class WarehouseController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('STAFF','MANAGER','ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER','STAFF','ANALYST')")
     public ResponseEntity<ApiResponse<WarehouseDTO>> getWarehouse(@PathVariable UUID id) {
         WarehouseDTO warehouse = warehouseService.getWarehouseById(id);
         return ResponseEntity.ok(ApiResponse.success(warehouse, "Warehouse retrieved", nowUtc()));
+    }
+
+    @PostMapping
+    @PreAuthorize("hasAnyRole('MANAGER','ADMIN')")
+    public ResponseEntity<ApiResponse<WarehouseDTO>> createWarehouse(
+            @Valid @RequestBody WarehouseCreateRequest request
+    ) {
+        WarehouseDTO warehouse = warehouseService.createWarehouse(request);
+        return ResponseEntity.ok(ApiResponse.success(warehouse, "Warehouse created", nowUtc()));
+    }
+
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('MANAGER','ADMIN')")
+    public ResponseEntity<ApiResponse<WarehouseDTO>> updateWarehouse(
+            @PathVariable UUID id,
+            @Valid @RequestBody WarehouseUpdateRequest request
+    ) {
+        WarehouseDTO warehouse = warehouseService.updateWarehouse(id, request);
+        return ResponseEntity.ok(ApiResponse.success(warehouse, "Warehouse updated", nowUtc()));
     }
 
     private OffsetDateTime nowUtc() {

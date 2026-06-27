@@ -55,14 +55,20 @@ def detect_sales_spikes(daily_sales_df: pd.DataFrame) -> list[dict[str, Any]]:
     anomalies = []
     for idx, row in working_df.iterrows():
         if abs(z_scores[idx]) >= 3 or flags[idx]:
+            score_val = float(z_scores[idx])
+            revenue_val = float(row.get("revenue", 0))
             anomalies.append(
                 {
                     "anomaly_type": "sales_spike",
                     "entity_id": str(row.get("date")),
                     "metric": "daily_revenue",
-                    "value": float(row.get("revenue", 0)),
-                    "score": float(z_scores[idx]),
+                    "value": revenue_val,
+                    "score": score_val,
                     "timestamp": str(row.get("date")),
+                    "severity": "HIGH" if abs(score_val) >= 4 else "MEDIUM",
+                    "reason": f"Daily sales revenue of ${revenue_val:,.2f} is exceptionally high (z-score: {score_val:.2f}).",
+                    "quantity": 0.0,
+                    "anomaly_score": score_val,
                 }
             )
     return anomalies
@@ -81,15 +87,26 @@ def detect_inventory_drops(transactions_df: pd.DataFrame) -> list[dict[str, Any]
     anomalies = []
     for idx, row in drops.iterrows():
         if abs(z_scores[idx]) >= 3 or flags[idx]:
+            score_val = float(z_scores[idx])
+            qty_val = float(abs(row.get("quantity", 0)))
+            p_name = str(row.get("product_name")) if row.get("product_name") else "Unknown"
+            w_name = str(row.get("warehouse_name")) if row.get("warehouse_name") else "Warehouse"
             anomalies.append(
                 {
                     "anomaly_type": "inventory_drop",
                     "entity_id": str(row.get("product_id")),
-                    "metric": "transaction_quantity",
-                    "value": float(abs(row.get("quantity", 0))),
-                    "score": float(z_scores[idx]),
-                    "timestamp": row.get("created_at").isoformat(),
+                    "product_id": str(row.get("product_id")),
+                    "product_name": str(row.get("product_name")) if row.get("product_name") else None,
                     "warehouse_id": str(row.get("warehouse_id")),
+                    "warehouse_name": str(row.get("warehouse_name")) if row.get("warehouse_name") else None,
+                    "metric": "transaction_quantity",
+                    "value": qty_val,
+                    "score": score_val,
+                    "timestamp": row.get("created_at").isoformat(),
+                    "severity": "CRITICAL" if abs(score_val) >= 4 else "HIGH",
+                    "reason": f"Sudden stock drop of {int(qty_val)} units in {w_name} for product '{p_name}' (z-score: {score_val:.2f}).",
+                    "quantity": qty_val,
+                    "anomaly_score": score_val,
                 }
             )
     return anomalies
@@ -106,16 +123,27 @@ def detect_abnormal_transactions(transactions_df: pd.DataFrame) -> list[dict[str
     anomalies = []
     for idx, row in working_df.iterrows():
         if abs(z_scores[idx]) >= 3.5 or flags[idx]:
+            score_val = float(z_scores[idx])
+            qty_val = float(abs(row.get("quantity", 0)))
+            p_name = str(row.get("product_name")) if row.get("product_name") else "Unknown"
+            w_name = str(row.get("warehouse_name")) if row.get("warehouse_name") else "Warehouse"
+            tx_type = str(row.get("transaction_type", "unknown"))
             anomalies.append(
                 {
                     "anomaly_type": "transaction_outlier",
                     "entity_id": str(row.get("id")),
-                    "metric": "transaction_quantity",
-                    "value": float(abs(row.get("quantity", 0))),
-                    "score": float(z_scores[idx]),
-                    "timestamp": row.get("created_at").isoformat(),
-                    "warehouse_id": str(row.get("warehouse_id")),
                     "product_id": str(row.get("product_id")),
+                    "product_name": str(row.get("product_name")) if row.get("product_name") else None,
+                    "warehouse_id": str(row.get("warehouse_id")),
+                    "warehouse_name": str(row.get("warehouse_name")) if row.get("warehouse_name") else None,
+                    "metric": "transaction_quantity",
+                    "value": qty_val,
+                    "score": score_val,
+                    "timestamp": row.get("created_at").isoformat(),
+                    "severity": "CRITICAL" if abs(score_val) >= 4.5 else "HIGH",
+                    "reason": f"Unusual transaction of {int(qty_val)} units of '{p_name}' in {w_name} (type: {tx_type}, z-score: {score_val:.2f}).",
+                    "quantity": qty_val,
+                    "anomaly_score": score_val,
                 }
             )
     return anomalies

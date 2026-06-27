@@ -1,5 +1,6 @@
 package com.smartinventory.controller;
 
+import com.smartinventory.aspect.Auditable;
 import com.smartinventory.dto.ApiResponse;
 import com.smartinventory.dto.CreateSalesOrderRequest;
 import com.smartinventory.dto.SalesOrderDTO;
@@ -43,7 +44,7 @@ public class SalesOrderController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('STAFF','MANAGER','ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER','STAFF','ANALYST')")
     @Operation(summary = "List sales orders")
     public ResponseEntity<ApiResponse<Page<SalesOrderDTO>>> getSalesOrders(
             @Parameter(description = "Sales order status")
@@ -64,7 +65,7 @@ public class SalesOrderController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('STAFF','MANAGER','ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER','STAFF','ANALYST')")
     @Operation(summary = "Get sales order")
     public ResponseEntity<ApiResponse<SalesOrderDTO>> getSalesOrder(@PathVariable UUID id) {
         SalesOrderDTO salesOrder = salesOrderService.getSalesOrderById(id);
@@ -74,6 +75,7 @@ public class SalesOrderController {
     @PostMapping
     @PreAuthorize("hasAnyRole('STAFF','MANAGER','ADMIN')")
     @Operation(summary = "Create sales order")
+    @Auditable(entity = "SalesOrder", action = "CREATE")
     public ResponseEntity<ApiResponse<SalesOrderDTO>> createSalesOrder(
             @Valid @RequestBody CreateSalesOrderRequest request
     ) {
@@ -84,6 +86,7 @@ public class SalesOrderController {
     @PutMapping("/{id}/confirm")
     @PreAuthorize("hasAnyRole('MANAGER','ADMIN')")
     @Operation(summary = "Confirm sales order")
+    @Auditable(entity = "SalesOrder", action = "APPROVE")
     public ResponseEntity<ApiResponse<SalesOrderDTO>> confirmSalesOrder(@PathVariable UUID id) {
         SalesOrderDTO salesOrder = salesOrderService.confirmOrder(id);
         return ResponseEntity.ok(ApiResponse.success(salesOrder, "Sales order confirmed", nowUtc()));
@@ -100,6 +103,7 @@ public class SalesOrderController {
     @PutMapping("/{id}/cancel")
     @PreAuthorize("hasAnyRole('MANAGER','ADMIN')")
     @Operation(summary = "Cancel sales order")
+    @Auditable(entity = "SalesOrder", action = "CANCEL")
     public ResponseEntity<ApiResponse<SalesOrderDTO>> cancelSalesOrder(@PathVariable UUID id) {
         SalesOrderDTO salesOrder = salesOrderService.cancelOrder(id);
         return ResponseEntity.ok(ApiResponse.success(salesOrder, "Sales order cancelled", nowUtc()));

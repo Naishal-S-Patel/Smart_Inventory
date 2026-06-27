@@ -73,18 +73,90 @@ def _ensure_directories() -> None:
     CHART_DIR.mkdir(parents=True, exist_ok=True)
 
 
-def _load_dataset(dataset_path: Path) -> pd.DataFrame:
+# ── Database-backed data loading ──────────────────────────────────────────
+
+
+def _get_engine():
+    """Lazily import the DB engine to avoid circular imports."""
+    from app.db.session import engine
+    return engine
+
+
+def _load_history_from_db(product_id: str) -> pd.DataFrame:
+    """Load sales history for a product from the PostgreSQL database."""
+    from app.analytics.data_access import read_daily_sales_series
+
+    engine = _get_engine()
+    df = read_daily_sales_series(engine, product_id=product_id)
+    if df.empty:
+        return df
+
+    # Ensure product_id column is string for consistent comparisons
+    df["product_id"] = df["product_id"].astype(str)
+    return df
+
+
+# ── CSV fallback ──────────────────────────────────────────────────────────
+
+
+def _load_dataset_csv(dataset_path: Path) -> pd.DataFrame:
     df = pd.read_csv(dataset_path)
     df["date"] = pd.to_datetime(df["date"], utc=True).dt.tz_convert(None).dt.normalize()
     return df
 
 
-def _load_history(product_id: str, dataset_path: Path) -> pd.DataFrame:
-    df = _load_dataset(dataset_path)
+def _load_history_csv(product_id: str, dataset_path: Path) -> pd.DataFrame:
+    df = _load_dataset_csv(dataset_path)
     product_df = df[df["product_id"].astype(str) == str(product_id)].copy()
-    if product_df.empty:
-        raise ValueError(f"No data found for product {product_id}")
     return product_df
+
+
+# ── Unified loader: DB first, CSV fallback ────────────────────────────────
+
+
+def _load_history(product_id: str) -> pd.DataFrame:
+    """Load product history from DB first; fall back to CSV if DB is empty."""
+    try:
+        db_df = _load_history_from_db(product_id)
+        if not db_df.empty and len(db_df) >= 7:
+            logger.info("history_loaded_from_db", extra={"product_id": product_id, "rows": len(db_df)})
+            return db_df
+    except Exception as exc:
+        logger.warning("db_history_load_failed", extra={"product_id": product_id, "error": str(exc)})
+
+    # Fallback to CSV
+    if DATASET_PATH.exists():
+        csv_df = _load_history_csv(product_id, DATASET_PATH)
+        if not csv_df.empty:
+            logger.info("history_loaded_from_csv_fallback", extra={"product_id": product_id, "rows": len(csv_df)})
+            return csv_df
+
+    raise ValueError(f"No data found for product {product_id} in DB or CSV")
+
+
+def _load_all_product_ids() -> list[str]:
+    """Get all product IDs with sales data — DB first, CSV fallback."""
+    try:
+        from app.analytics.data_access import read_all_product_ids_with_sales
+        engine = _get_engine()
+        ids = read_all_product_ids_with_sales(engine)
+        if ids:
+            logger.info("product_ids_loaded_from_db", extra={"count": len(ids)})
+            return ids
+    except Exception as exc:
+        logger.warning("db_product_ids_load_failed", extra={"error": str(exc)})
+
+    # Fallback to CSV
+    if DATASET_PATH.exists():
+        df = _load_dataset_csv(DATASET_PATH)
+        ids = df["product_id"].astype(str).unique().tolist()
+        logger.info("product_ids_loaded_from_csv_fallback", extra={"count": len(ids)})
+        return ids
+
+    return []
+
+
+# ── Series building & metadata ────────────────────────────────────────────
 
 
 def _build_daily_series(history_df: pd.DataFrame) -> pd.DataFrame:
@@ -94,6 +166,9 @@ def _build_daily_series(history_df: pd.DataFrame) -> pd.DataFrame:
         .rename(columns={"date": "ds", "quantity_sold": "y"})
         .sort_values("ds")
     )
+    # Prophet requires timezone-naive datetimes
+    daily["ds"] = pd.to_datetime(daily["ds"]).dt.tz_localize(None) if daily["ds"].dt.tz is not None else pd.to_datetime(daily["ds"])
+    daily["ds"] = daily["ds"].dt.normalize()
     return daily
 
 
@@ -129,6 +204,9 @@ def _build_future_dates(last_date: datetime, horizon_days: int) -> pd.DataFrame:
         freq="D",
     )
     return pd.DataFrame({"ds": future_dates})
+
+
+# ── Seasonal adjustments ──────────────────────────────────────────────────
 
 
 def _season_from_month(month: int) -> str:
@@ -205,6 +283,9 @@ def _sanitize_forecast(forecast_df: pd.DataFrame) -> pd.DataFrame:
     return sanitized
 
 
+# ── Output generation ─────────────────────────────────────────────────────
+
+
 def _save_forecast_outputs(product_id: str, forecast_df: pd.DataFrame) -> Path:
     _ensure_directories()
     output_path = FORECAST_DIR / f"{product_id}_forecast.csv"
@@ -273,14 +354,16 @@ def _generate_forecast_charts(
     )
 
 
+# ── Core forecast functions ───────────────────────────────────────────────
+
+
 def forecast_next_30_days(
     product_id: str,
     *,
     model: Prophet | None = None,
     history_df: pd.DataFrame | None = None,
-    dataset_path: Path = DATASET_PATH,
 ) -> list[ForecastRecord]:
-    history_df = history_df if history_df is not None else _load_history(product_id, dataset_path)
+    history_df = history_df if history_df is not None else _load_history(product_id)
     daily_series = _build_daily_series(history_df)
     product_meta = _extract_product_meta(history_df)
 
@@ -338,7 +421,7 @@ def generate_reorder_recommendation(
     history_df: pd.DataFrame | None = None,
     forecast_override: list[ForecastRecord] | None = None,
 ) -> dict[str, object]:
-    history_df = history_df if history_df is not None else _load_history(product_id, DATASET_PATH)
+    history_df = history_df if history_df is not None else _load_history(product_id)
     product_meta = _extract_product_meta(history_df)
 
     forecast = forecast_override or forecast_next_30_days(
@@ -369,8 +452,21 @@ def generate_reorder_recommendation(
         },
     )
 
+    # Enrich with human-readable product metadata
+    product_name: str | None = None
+    category: str | None = None
+    try:
+        if not history_df.empty:
+            latest = history_df.sort_values("date").iloc[-1]
+            product_name = str(latest.get("product_name", "") or "").strip() or None
+            category = str(product_meta.category or "").strip() or None
+    except Exception:
+        pass
+
     return {
         "productId": str(product_id),
+        "productName": product_name,
+        "category": category,
         "forecast": forecast,
         "recommendedOrderQty": int(recommended_order_qty),
         "predictedStockoutDate": predicted_stockout_date,
@@ -386,24 +482,47 @@ def _has_demand_spike(history_df: pd.DataFrame, forecast: list[ForecastRecord]) 
 
 
 def generate_low_stock_alerts(limit: int = 50) -> list[dict[str, object]]:
-    df = _load_dataset(DATASET_PATH)
+    product_ids = _load_all_product_ids()
     alerts: list[dict[str, object]] = []
-    for product_id in df["product_id"].astype(str).unique():
-        history_df = df[df["product_id"].astype(str) == str(product_id)].copy()
+
+    for product_id in product_ids:
+        try:
+            history_df = _load_history(product_id)
+        except (ValueError, Exception) as exc:
+            logger.debug("skipping_product_for_alerts", extra={"product_id": product_id, "error": str(exc)})
+            continue
+
         product_meta = _extract_product_meta(history_df)
-        forecast = forecast_next_30_days(product_id, history_df=history_df)
+
+        try:
+            forecast = forecast_next_30_days(product_id, history_df=history_df)
+        except (FileNotFoundError, Exception) as exc:
+            logger.debug("skipping_forecast_for_alerts", extra={"product_id": product_id, "error": str(exc)})
+            continue
+
         predicted_stockout_date = _compute_stockout_date(
             forecast, product_meta.stock_level
         )
         demand_spike = _has_demand_spike(history_df, forecast)
 
+        product_name_val = None
+        category_val = None
+        try:
+            latest = history_df.sort_values("date").iloc[-1]
+            product_name_val = str(latest.get("product_name", "") or "").strip() or None
+            category_val = str(product_meta.category or "").strip() or None
+        except Exception:
+            pass
+
         if product_meta.stock_level <= product_meta.reorder_point:
             alerts.append(
                 {
                     "productId": str(product_id),
+                    "productName": product_name_val,
+                    "category": category_val,
                     "alertType": "low_stock",
                     "currentStock": product_meta.stock_level,
-                    "message": "Stock is below reorder point.",
+                    "message": f"Stock ({product_meta.stock_level} units) is below reorder point ({product_meta.reorder_point} units).",
                     "predictedStockoutDate": predicted_stockout_date,
                 }
             )
@@ -412,9 +531,11 @@ def generate_low_stock_alerts(limit: int = 50) -> list[dict[str, object]]:
             alerts.append(
                 {
                     "productId": str(product_id),
+                    "productName": product_name_val,
+                    "category": category_val,
                     "alertType": "predicted_stockout",
                     "currentStock": product_meta.stock_level,
-                    "message": "Stockout predicted within forecast horizon.",
+                    "message": f"Stockout predicted by {predicted_stockout_date}.",
                     "predictedStockoutDate": predicted_stockout_date,
                 }
             )
@@ -423,9 +544,10 @@ def generate_low_stock_alerts(limit: int = 50) -> list[dict[str, object]]:
             alerts.append(
                 {
                     "productId": str(product_id),
+                    "productName": product_name_val,
                     "alertType": "demand_spike",
                     "currentStock": product_meta.stock_level,
-                    "message": "Forecast shows unusually high demand spike.",
+                    "message": "Forecast shows unusually high demand — consider expedited restocking.",
                     "predictedStockoutDate": predicted_stockout_date,
                 }
             )

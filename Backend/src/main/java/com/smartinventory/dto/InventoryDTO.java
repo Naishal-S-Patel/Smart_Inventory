@@ -2,11 +2,13 @@ package com.smartinventory.dto;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 
 @Getter
 @Builder
+@AllArgsConstructor
 public class InventoryDTO {
 
     private final UUID productId;

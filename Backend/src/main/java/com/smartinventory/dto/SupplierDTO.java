@@ -3,11 +3,13 @@ package com.smartinventory.dto;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.OffsetDateTime;
 import java.util.UUID;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 
 @Getter
 @Builder
+@AllArgsConstructor
 @Schema(description = "Supplier details")
 public class SupplierDTO {
 

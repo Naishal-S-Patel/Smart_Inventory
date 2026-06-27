@@ -1,5 +1,16 @@
 package com.smartinventory.service;
 
+import java.time.Clock;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.util.List;
+import java.util.UUID;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.smartinventory.dto.InventoryAdjustmentRequest;
 import com.smartinventory.dto.InventoryDTO;
 import com.smartinventory.dto.InventoryTransactionDTO;
@@ -7,7 +18,6 @@ import com.smartinventory.dto.InventoryTransferRequest;
 import com.smartinventory.entity.Inventory;
 import com.smartinventory.entity.InventoryTransaction;
 import com.smartinventory.entity.InventoryTransactionType;
-import com.smartinventory.entity.InventoryId;
 import com.smartinventory.entity.Product;
 import com.smartinventory.entity.Warehouse;
 import com.smartinventory.exception.InsufficientStockException;
@@ -19,16 +29,13 @@ import com.smartinventory.repository.InventoryRepository;
 import com.smartinventory.repository.InventoryTransactionRepository;
 import com.smartinventory.repository.ProductRepository;
 import com.smartinventory.repository.WarehouseRepository;
-import java.time.Clock;
-import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
-import java.util.List;
-import java.util.UUID;
+import com.smartinventory.security.UserPrincipal;
+import com.smartinventory.websocket.AlertEventPublisher;
+import com.smartinventory.websocket.InventoryEventPublisher;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
 @Service
@@ -40,6 +47,8 @@ public class InventoryService {
     private final WarehouseRepository warehouseRepository;
     private final InventoryMapper inventoryMapper;
     private final Clock clock;
+    private final InventoryEventPublisher inventoryEventPublisher;
+    private final AlertEventPublisher alertEventPublisher;
 
     public InventoryService(
             InventoryRepository inventoryRepository,
@@ -47,7 +56,9 @@ public class InventoryService {
             ProductRepository productRepository,
             WarehouseRepository warehouseRepository,
             InventoryMapper inventoryMapper,
-            Clock clock
+            Clock clock,
+            InventoryEventPublisher inventoryEventPublisher,
+            AlertEventPublisher alertEventPublisher
     ) {
         this.inventoryRepository = inventoryRepository;
         this.inventoryTransactionRepository = inventoryTransactionRepository;
@@ -55,6 +66,8 @@ public class InventoryService {
         this.warehouseRepository = warehouseRepository;
         this.inventoryMapper = inventoryMapper;
         this.clock = clock;
+        this.inventoryEventPublisher = inventoryEventPublisher;
+        this.alertEventPublisher = alertEventPublisher;
     }
 
     @Transactional
@@ -77,13 +90,13 @@ public class InventoryService {
             inventory = new Inventory();
             inventory.setProduct(product);
             inventory.setWarehouse(warehouse);
-            inventory.setId(new InventoryId(product.getId(), warehouse.getId()));
+            // id is generated automatically by @GeneratedValue
             inventory.setQuantityOnHand(0);
             inventory.setReservedQuantity(0);
-            inventory.setReorderPoint(product.getReorderPoint());
         }
 
-        int newOnHand = inventory.getQuantityOnHand() + delta;
+        int oldOnHand = inventory.getQuantityOnHand();
+        int newOnHand = oldOnHand + delta;
         if (newOnHand < 0 || newOnHand < inventory.getReservedQuantity()) {
             throw new InsufficientStockException(product.getId(), warehouse.getId(), Math.abs(delta),
                     Math.max(inventory.getAvailableQuantity(), 0));
@@ -93,7 +106,22 @@ public class InventoryService {
         inventory.setLastUpdatedAt(now);
         Inventory saved = inventoryRepository.save(inventory);
 
-        createTransaction(saved, transactionType, delta, now);
+        createTransaction(saved, transactionType, delta, request.getReferenceId(), request.getReferenceType(), request.getNotes(), now);
+
+        // Publish real-time inventory update event
+        inventoryEventPublisher.publishInventoryUpdate(
+                warehouse.getId(), product.getId(), oldOnHand, newOnHand, transactionType.name());
+
+        // Fire alert if stock has dropped at or below product reorder point
+        if (newOnHand <= product.getReorderPoint()) {
+            alertEventPublisher.publishAlert(
+                    null,
+                    UUID.randomUUID(),
+                    "CRITICAL",
+                    String.format("Stock for product %s in warehouse %s is at %d units (reorder point: %d)",
+                            product.getId(), warehouse.getId(), newOnHand, product.getReorderPoint()));
+        }
+
         log.info("Inventory adjusted: product={}, warehouse={}, delta={}, type={}",
                 product.getId(), warehouse.getId(), delta, transactionType);
 
@@ -127,10 +155,9 @@ public class InventoryService {
                     Inventory created = new Inventory();
                     created.setProduct(product);
                     created.setWarehouse(destinationWarehouse);
-                    created.setId(new InventoryId(product.getId(), destinationWarehouse.getId()));
+                    // id is generated automatically by @GeneratedValue
                     created.setQuantityOnHand(0);
                     created.setReservedQuantity(0);
-                    created.setReorderPoint(product.getReorderPoint());
                     return created;
                 });
         destinationInventory.setQuantityOnHand(destinationInventory.getQuantityOnHand() + quantity);
@@ -139,8 +166,24 @@ public class InventoryService {
         Inventory savedSource = inventoryRepository.save(sourceInventory);
         Inventory savedDestination = inventoryRepository.save(destinationInventory);
 
-        createTransaction(savedSource, InventoryTransactionType.TRANSFER_OUT, -quantity, now);
-        createTransaction(savedDestination, InventoryTransactionType.TRANSFER_IN, quantity, now);
+        String sourceNotes = "To: " + destinationWarehouse.getName() + " | Notes: " + (request.getNotes() != null ? request.getNotes() : "");
+        String destNotes = "From: " + sourceWarehouse.getName() + " | Notes: " + (request.getNotes() != null ? request.getNotes() : "");
+
+        createTransaction(savedSource, InventoryTransactionType.TRANSFER_OUT, -quantity, request.getReferenceId(), request.getReferenceType(), sourceNotes, now);
+        createTransaction(savedDestination, InventoryTransactionType.TRANSFER_IN, quantity, request.getReferenceId(), request.getReferenceType(), destNotes, now);
+
+        // Publish events for both source and destination warehouses
+        inventoryEventPublisher.publishInventoryUpdate(
+                sourceWarehouse.getId(), product.getId(),
+                sourceInventory.getQuantityOnHand() + quantity,   // old value
+                savedSource.getQuantityOnHand(),
+                InventoryTransactionType.TRANSFER_OUT.name());
+
+        inventoryEventPublisher.publishInventoryUpdate(
+                destinationWarehouse.getId(), product.getId(),
+                destinationInventory.getQuantityOnHand() - quantity,  // old value
+                savedDestination.getQuantityOnHand(),
+                InventoryTransactionType.TRANSFER_IN.name());
 
         log.info("Inventory transferred: product={}, fromWarehouse={}, toWarehouse={}, qty={}",
                 product.getId(), sourceWarehouse.getId(), destinationWarehouse.getId(), quantity);
@@ -173,7 +216,7 @@ public class InventoryService {
         inventory.setLastUpdatedAt(now);
         Inventory saved = inventoryRepository.save(inventory);
 
-        createTransaction(saved, InventoryTransactionType.SALE, -quantity, now);
+        createTransaction(saved, InventoryTransactionType.SALE, -quantity, referenceId, referenceType, notes, now);
         log.info("Inventory reserved: product={}, warehouse={}, qty={}", productId, warehouseId, quantity);
 
         return inventoryMapper.toInventoryDto(saved);
@@ -200,7 +243,7 @@ public class InventoryService {
         inventory.setLastUpdatedAt(now);
         Inventory saved = inventoryRepository.save(inventory);
 
-        createTransaction(saved, InventoryTransactionType.RETURN, quantity, now);
+        createTransaction(saved, InventoryTransactionType.RETURN, quantity, referenceId, referenceType, notes, now);
         log.info("Inventory reservation released: product={}, warehouse={}, qty={}", productId, warehouseId, quantity);
 
         return inventoryMapper.toInventoryDto(saved);
@@ -271,14 +314,27 @@ public class InventoryService {
                 .orElseThrow(() -> new WarehouseNotFoundException(warehouseId));
     }
 
-    private void createTransaction(Inventory inventory, InventoryTransactionType type, int quantity, OffsetDateTime now) {
+    private void createTransaction(Inventory inventory, InventoryTransactionType type, int quantity,
+                                   String referenceId, String referenceType, String notes, OffsetDateTime now) {
         InventoryTransaction transaction = new InventoryTransaction();
         transaction.setProduct(inventory.getProduct());
         transaction.setWarehouse(inventory.getWarehouse());
         transaction.setTransactionType(type);
         transaction.setQuantity(quantity);
+        transaction.setReferenceId(referenceId);
+        transaction.setReferenceType(referenceType);
+        transaction.setNotes(notes);
+        transaction.setCreatedBy(resolveCurrentUsername());
         transaction.setCreatedAt(now);
         inventoryTransactionRepository.save(transaction);
+    }
+
+    private String resolveCurrentUsername() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !(authentication.getPrincipal() instanceof UserPrincipal principal)) {
+            return "SYSTEM";
+        }
+        return principal.getEmail();
     }
 
     private OffsetDateTime nowUtc() {

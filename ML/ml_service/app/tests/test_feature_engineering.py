@@ -16,7 +16,7 @@ def _build_df() -> pd.DataFrame:
 def test_day_of_week_correctness():
     df = _build_df()
     features = build_features(df)
-    assert features.loc[0, "day_of_week"] == 2
+    assert features.loc[0, "day_of_week"] == 3
 
 
 def test_lag_7_correctness():

@@ -1,20 +1,5 @@
 package com.smartinventory.service;
 
-import com.smartinventory.dto.InventoryDTO;
-import com.smartinventory.dto.InventoryTransferRequest;
-import com.smartinventory.entity.Category;
-import com.smartinventory.entity.Inventory;
-import com.smartinventory.entity.InventoryId;
-import com.smartinventory.entity.InventoryTransaction;
-import com.smartinventory.entity.InventoryTransactionType;
-import com.smartinventory.entity.Product;
-import com.smartinventory.entity.Warehouse;
-import com.smartinventory.exception.InsufficientStockException;
-import com.smartinventory.repository.CategoryRepository;
-import com.smartinventory.repository.InventoryRepository;
-import com.smartinventory.repository.InventoryTransactionRepository;
-import com.smartinventory.repository.ProductRepository;
-import com.smartinventory.repository.WarehouseRepository;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.OffsetDateTime;
@@ -26,6 +11,9 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -35,8 +23,27 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import com.smartinventory.dto.InventoryDTO;
+import com.smartinventory.dto.InventoryTransferRequest;
+import com.smartinventory.entity.Category;
+import com.smartinventory.entity.Inventory;
+import com.smartinventory.entity.InventoryId;
+import com.smartinventory.entity.InventoryTransaction;
+import com.smartinventory.entity.InventoryTransactionType;
+import com.smartinventory.entity.Product;
+import com.smartinventory.entity.Warehouse;
+import com.smartinventory.exception.InsufficientStockException;
+import com.smartinventory.repository.CategoryRepository;
+import com.smartinventory.repository.CustomerRepository;
+import com.smartinventory.repository.InventoryRepository;
+import com.smartinventory.repository.InventoryTransactionRepository;
+import com.smartinventory.repository.ProductRepository;
+import com.smartinventory.repository.PurchaseOrderItemRepository;
+import com.smartinventory.repository.PurchaseOrderRepository;
+import com.smartinventory.repository.SalesOrderItemRepository;
+import com.smartinventory.repository.SalesOrderRepository;
+import com.smartinventory.repository.SupplierRepository;
+import com.smartinventory.repository.WarehouseRepository;
 
 @SpringBootTest
 class InventoryIntegrationTest {
@@ -60,6 +67,24 @@ class InventoryIntegrationTest {
     private InventoryTransactionRepository inventoryTransactionRepository;
 
     @Autowired
+    private SalesOrderItemRepository salesOrderItemRepository;
+
+    @Autowired
+    private SalesOrderRepository salesOrderRepository;
+
+    @Autowired
+    private CustomerRepository customerRepository;
+
+    @Autowired
+    private PurchaseOrderItemRepository purchaseOrderItemRepository;
+
+    @Autowired
+    private PurchaseOrderRepository purchaseOrderRepository;
+
+    @Autowired
+    private SupplierRepository supplierRepository;
+
+    @Autowired
     private PlatformTransactionManager transactionManager;
 
     @Autowired
@@ -67,6 +92,12 @@ class InventoryIntegrationTest {
 
     @BeforeEach
     void cleanDatabase() {
+        salesOrderItemRepository.deleteAll();
+        salesOrderRepository.deleteAll();
+        customerRepository.deleteAll();
+        purchaseOrderItemRepository.deleteAll();
+        purchaseOrderRepository.deleteAll();
+        supplierRepository.deleteAll();
         inventoryTransactionRepository.deleteAll();
         inventoryRepository.deleteAll();
         warehouseRepository.deleteAll();
@@ -218,6 +249,8 @@ class InventoryIntegrationTest {
         warehouse.setState("State");
         warehouse.setCapacity(1000);
         warehouse.setActive(true);
+        warehouse.setCreatedAt(nowUtc());
+        warehouse.setUpdatedAt(nowUtc());
         return warehouseRepository.save(warehouse);
     }
 
@@ -228,7 +261,6 @@ class InventoryIntegrationTest {
         inventory.setWarehouse(warehouse);
         inventory.setQuantityOnHand(quantityOnHand);
         inventory.setReservedQuantity(reservedQuantity);
-        inventory.setReorderPoint(product.getReorderPoint());
         inventory.setLastUpdatedAt(nowUtc());
         return inventoryRepository.save(inventory);
     }
